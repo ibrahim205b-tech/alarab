@@ -79,8 +79,8 @@ class ReceiptBuilder {
           pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
             pw.Expanded(
               child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-                pw.Text(it.name, style: pw.TextStyle(font: _bold, fontSize: fs)),
-                if (it.detail.isNotEmpty) pw.Text(it.detail, style: pw.TextStyle(fontSize: fs - 1.5, color: PdfColors.grey800)),
+                _txt(it.name, pw.TextStyle(font: _bold, fontSize: fs)),
+                if (it.detail.isNotEmpty) _txt(it.detail, pw.TextStyle(fontSize: fs - 1.5, color: PdfColors.grey800)),
                 if (it.qty > 1) pw.Text('سعر المفرد ${numFmt(it.price)}', style: pw.TextStyle(fontSize: fs - 1.5)),
               ]),
             ),
@@ -179,7 +179,7 @@ class ReceiptBuilder {
       build: (c) => _frame(null, [
         ..._header(s, fs),
         _dash(),
-        pw.Center(child: pw.Text('صفحة اختبار الطابعة ✓', style: pw.TextStyle(font: _xbold, fontSize: fs + 3))),
+        pw.Center(child: pw.Text('صفحة اختبار الطابعة', style: pw.TextStyle(font: _xbold, fontSize: fs + 3))),
         pw.Center(child: pw.Text('عرض الورق: $paper مم', style: pw.TextStyle(fontSize: fs))),
         pw.Center(child: pw.Text(dateTimeStr(DateTime.now()), style: pw.TextStyle(fontSize: fs))),
         _dash(),
@@ -227,10 +227,24 @@ class ReceiptBuilder {
           pw.Text('$k: ', style: pw.TextStyle(fontSize: fs, color: PdfColors.grey800)),
           pw.Expanded(
             child: pw.Text(v,
-                textAlign: pw.TextAlign.left,
+                textDirection: _dir(v),
+                textAlign: _dir(v) == pw.TextDirection.ltr ? pw.TextAlign.right : pw.TextAlign.left,
                 style: pw.TextStyle(font: bold ? _xbold : _bold, fontSize: bold ? fs + 1 : fs)),
           ),
         ]),
+      );
+
+  static final _arabic = RegExp('[\u0600-\u06FF]');
+
+  /// النص اللاتيني (مثل iPhone 13 128GB) يُكتب من اليسار لليمين حتى لا تنقلب كلماته
+  static pw.TextDirection _dir(String s) => _arabic.hasMatch(s) ? pw.TextDirection.rtl : pw.TextDirection.ltr;
+
+  static pw.Widget _txt(String s, pw.TextStyle style) => pw.SizedBox(
+        width: double.infinity,
+        child: pw.Text(s,
+            textDirection: _dir(s),
+            textAlign: _dir(s) == pw.TextDirection.ltr ? pw.TextAlign.right : pw.TextAlign.right,
+            style: style),
       );
 
   static pw.Widget _dash() => pw.Padding(
