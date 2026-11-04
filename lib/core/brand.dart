@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../data/repos/settings_repo.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -53,7 +54,8 @@ class BrandTitle extends StatelessWidget {
     return Column(mainAxisSize: MainAxisSize.min, children: [
       ShaderMask(
         shaderCallback: (r) => const LinearGradient(colors: [Color(0xFFF4DB97), AppColors.gold, Color(0xFFB08A3A)]).createShader(r),
-        child: Text('مبيعات علي العراب',
+        child: Text(SettingsRepo.instance.shopName,
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: size, fontWeight: FontWeight.w800, color: Colors.white, height: 1.2)),
       ),
       const SizedBox(height: 4),

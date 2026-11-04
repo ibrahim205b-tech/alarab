@@ -5,6 +5,7 @@ import '../../app.dart';
 import '../../core/brand.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../../data/repos/settings_repo.dart';
 import '../../services/session.dart';
 import '../admin/admin_screen.dart';
 import '../dashboard/dashboard_screen.dart';
@@ -339,7 +340,11 @@ class _SideNav extends StatelessWidget {
           const BrandMark(size: 52),
           if (extended) ...[
             const SizedBox(height: 10),
-            const Text('مبيعات علي العراب', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(SettingsRepo.instance.shopName,
+                  textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
           ],
           const SizedBox(height: 16),
           Expanded(
