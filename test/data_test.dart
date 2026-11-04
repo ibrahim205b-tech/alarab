@@ -1,6 +1,7 @@
 import 'package:alarab/data/db.dart';
 import 'package:alarab/data/models.dart';
 import 'package:alarab/data/repos/debts_repo.dart';
+import 'package:alarab/data/repos/expenses_repo.dart';
 import 'package:alarab/data/repos/lines_repo.dart';
 import 'package:alarab/data/repos/products_repo.dart';
 import 'package:alarab/data/repos/protectors_repo.dart';
@@ -125,6 +126,38 @@ void main() {
     final r4 = ProtectorsRepo.search(all, 'ريدمي نوت 10 برو');
     expect(r4.first.exact, true);
     expect(r4.first.group.models.map((m) => m.model), contains('Poco X4 Pro 5G'));
+  });
+
+  test('shift reset zeroes sales, received and expenses but keeps records', () async {
+    final red = (await LinesRepo.lineTypes()).firstWhere((t) => t.name == 'ريد');
+    final s15 = (await LinesRepo.services(lineTypeId: red.id)).first;
+    await LinesRepo.sell(type: red, service: s15, amount: 15000);
+    await ExpensesRepo.add('إنترنت', 5000, '');
+    final d = await DebtsRepo.add(name: 'أحمد', type: 'دين نقدي', amount: 20000);
+    await DebtsRepo.pay(d, 8000);
+
+    var s = await ReportsRepo.shiftSummary();
+    expect(s.revenue, 15000);
+    expect(s.received, 23000);
+    expect(s.expenses, 5000);
+    expect(s.cash, 18000);
+
+    await Future.delayed(const Duration(milliseconds: 5));
+    await ReportsRepo.closePeriod();
+    await Future.delayed(const Duration(milliseconds: 5));
+    s = await ReportsRepo.shiftSummary();
+    expect(s.revenue, 0);
+    expect(s.received, 0);
+    expect(s.expenses, 0);
+    expect(s.cash, 0);
+
+    final (sale, _) = await LinesRepo.sell(type: red, service: s15, amount: 15000);
+    expect(sale.number, 1);
+    expect((await ReportsRepo.shiftSummary()).revenue, 15000);
+    // السجلات القديمة باقية والدين المتبقي لم يتأثر
+    expect((await LinesRepo.sales()).length, 2);
+    expect((await DebtsRepo.get(d.id))!.remaining, 12000);
+    expect((await ReportsRepo.closedPeriods()).length, 1);
   });
 
   test('cannot remove last admin', () async {

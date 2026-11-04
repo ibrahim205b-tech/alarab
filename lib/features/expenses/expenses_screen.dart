@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/repos/expenses_repo.dart';
+import '../../data/repos/reports_repo.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -29,7 +30,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       ).animate().scaleXY(begin: 0, end: 1, delay: 200.ms, curve: Curves.easeOutBack),
       body: DataView<List<Expense>>(
         reloadKey: _month,
-        load: () => ExpensesRepo.list(from: _month ? DateTime(now.year, now.month) : startOfDay(now)),
+        load: () async => ExpensesRepo.list(from: _month ? DateTime(now.year, now.month) : await ReportsRepo.shiftStart()),
         builder: (context, list) {
           final total = list.fold<int>(0, (s, e) => s + e.amount);
           return ListView(
@@ -37,7 +38,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             children: [
               SegmentedButton<bool>(
                 segments: const [
-                  ButtonSegment(value: false, label: Text('اليوم')),
+                  ButtonSegment(value: false, label: Text('الوردية الحالية')),
                   ButtonSegment(value: true, label: Text('هذا الشهر')),
                 ],
                 selected: {_month},
@@ -51,7 +52,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(_month ? 'مصروفات ${monthName(now.month)}' : 'مصروفات اليوم', style: TextStyle(color: context.cs.onSurfaceVariant)),
+                      Text(_month ? 'مصروفات ${monthName(now.month)}' : 'مصروفات الوردية', style: TextStyle(color: context.cs.onSurfaceVariant)),
                       CountUp(total, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
                     ]),
                   ),

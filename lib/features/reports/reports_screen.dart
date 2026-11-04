@@ -18,7 +18,7 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
-  _Period _p = _Period.month;
+  _Period _p = _Period.today;
   DateTimeRange? _custom;
 
   Future<(DateTime, DateTime)> _range() async {
@@ -26,7 +26,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final t0 = startOfDay(now);
     final end = t0.add(const Duration(days: 1));
     return switch (_p) {
-      _Period.today => (t0, end),
+      _Period.today => (await ReportsRepo.shiftStart(), end),
       _Period.week => (t0.subtract(const Duration(days: 6)), end),
       _Period.month => (DateTime(now.year, now.month), end),
       _Period.period => (DateTime.fromMillisecondsSinceEpoch((await ReportsRepo.currentPeriod()).startedAt), end),
@@ -55,7 +55,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 for (final p in _Period.values) ...[
                   ChoiceChip(
                     label: Text(switch (p) {
-                      _Period.today => 'اليوم',
+                      _Period.today => 'الوردية الحالية',
                       _Period.week => '7 أيام',
                       _Period.month => 'هذا الشهر',
                       _Period.period => 'منذ آخر تصفير',
@@ -77,13 +77,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
             ),
             const SizedBox(height: 14),
             LayoutBuilder(builder: (c, cons) {
-              final cols = cons.maxWidth > 700 ? 4 : 2;
+              final cols = cons.maxWidth > 700 ? 3 : 2;
               final w = (cons.maxWidth - (cols - 1) * 12) / cols;
               final tiles = [
                 ('الإيرادات', s.revenue, Icons.payments_rounded, AppColors.gold),
                 ('إجمالي الربح', s.grossProfit, Icons.trending_up_rounded, AppColors.success),
                 ('المصروفات', s.expenses, Icons.account_balance_wallet_rounded, const Color(0xFFF97316)),
                 ('صافي الربح', s.netProfit, Icons.savings_rounded, s.netProfit >= 0 ? AppColors.teal : AppColors.danger),
+                ('المستلم', s.received, Icons.account_balance_wallet_rounded, AppColors.info),
+                ('الصافي بالصندوق', s.cash, Icons.point_of_sale_rounded, const Color(0xFF8B5CF6)),
               ];
               return Wrap(spacing: 12, runSpacing: 12, children: [
                 for (var i = 0; i < tiles.length; i++)

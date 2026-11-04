@@ -7,6 +7,7 @@ import '../../data/repos/reports_repo.dart';
 import '../../data/repos/settings_repo.dart';
 import '../../services/printer.dart';
 import '../../services/telegram.dart';
+import '../shift/shift_reset.dart';
 import 'admin_pages.dart';
 import 'catalog_page.dart';
 
@@ -83,40 +84,39 @@ class AdminScreen extends StatelessWidget {
   }
 }
 
-/// تصفير مبيعات الشهر
+/// تصفير الوردية
 class _ResetCard extends StatelessWidget {
   const _ResetCard();
   @override
   Widget build(BuildContext context) {
-    return DataView<Period>(
-      load: ReportsRepo.currentPeriod,
-      builder: (context, p) => AppCard(
+    return DataView<(DateTime, ReportSummary)>(
+      load: () async => (await ReportsRepo.shiftStart(), await ReportsRepo.shiftSummary()),
+      builder: (context, d) => AppCard(
         borderColor: AppColors.danger.withValues(alpha: .4),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Row(children: [
             IconBadge(icon: Icons.restart_alt_rounded, color: AppColors.danger, size: 46),
             SizedBox(width: 12),
-            Expanded(
-              child: Text('تصفير مبيعات الشهر', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            ),
+            Expanded(child: Text('تصفير الوردية / بدء فترة جديدة', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800))),
           ]),
           const SizedBox(height: 10),
           Text(
-            'الفترة الحالية بدأت ${dateTimeMs(p.startedAt)}.\n'
-            'التصفير يُرجع ترقيم الخطوط والفواتير إلى #1 ويحفظ ملخص الفترة في الأرشيف. '
-            'لا تُحذف أي سجلات — تبقى كلها في التقارير والفواتير.',
+            'الوردية الحالية بدأت ${dateTimeStr(d.$1)}.\n'
+            'التصفير يرجع المبيعات والمستلم والمصروفات إلى 0 د.ع ويبدأ الترقيم من #1، '
+            'ويرسل تقرير الإغلاق إلى تليجرام. لا يُحذف أي سجل — كل شيء يبقى في الفواتير والتقارير والأرشيف.',
             style: TextStyle(color: context.cs.onSurfaceVariant),
           ),
+          const SizedBox(height: 10),
+          InfoRow('مبيعات الوردية', money(d.$2.revenue), bold: true),
+          InfoRow('المستلم', money(d.$2.received)),
+          InfoRow('المصروفات', money(d.$2.expenses)),
+          InfoRow('الصافي بالصندوق', money(d.$2.cash), bold: true, color: context.cs.primary),
           const SizedBox(height: 12),
           FilledButton.icon(
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (!await confirm(context, 'تصفير مبيعات الشهر؟', 'سيبدأ الترقيم من #1 وتُفتح فترة جديدة', danger: true, ok: 'تصفير')) return;
-              if (!context.mounted) return;
-              await guard(context, ReportsRepo.closePeriod, success: 'تم التصفير وبدأت فترة جديدة');
-            },
+            onPressed: () => confirmShiftReset(context),
             icon: const Icon(Icons.restart_alt_rounded),
-            label: const Text('تصفير الآن'),
+            label: const Text('تصفير الوردية الآن'),
           ),
         ]),
       ),

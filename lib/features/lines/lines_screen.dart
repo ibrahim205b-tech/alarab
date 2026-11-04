@@ -75,7 +75,7 @@ class _ServicesTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return DataView<(List<LineType>, List<Service>, List<LineSale>)>(
       load: () async {
-        final today = startOfDay(DateTime.now());
+        final today = await ReportsRepo.shiftStart();
         return (
           await LinesRepo.lineTypes(activeOnly: true),
           await LinesRepo.services(activeOnly: true),
@@ -142,7 +142,7 @@ class _TodayBanner extends StatelessWidget {
         const SizedBox(width: 16),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('مبيعات الخطوط اليوم', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
+            const Text('مبيعات خطوط الوردية', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
             CountUp(total, style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
           ]),
         ),
@@ -231,10 +231,10 @@ class _SoldTabState extends State<_SoldTab> {
         List<LineSale> sales;
         switch (_range) {
           case _Range.today:
-            sales = await LinesRepo.sales(from: startOfDay(DateTime.now()), lineTypeId: _typeId);
+            sales = await LinesRepo.sales(from: await ReportsRepo.shiftStart(), lineTypeId: _typeId);
           case _Range.period:
-            final p = await ReportsRepo.currentPeriod();
-            sales = await LinesRepo.sales(periodId: p.id, lineTypeId: _typeId);
+            final n = DateTime.now();
+            sales = await LinesRepo.sales(from: DateTime(n.year, n.month), lineTypeId: _typeId);
           case _Range.all:
             sales = await LinesRepo.sales(lineTypeId: _typeId);
         }
@@ -250,8 +250,8 @@ class _SoldTabState extends State<_SoldTab> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 SegmentedButton<_Range>(
                   segments: const [
-                    ButtonSegment(value: _Range.today, label: Text('اليوم'), icon: Icon(Icons.today_rounded)),
-                    ButtonSegment(value: _Range.period, label: Text('الشهر الحالي'), icon: Icon(Icons.calendar_month_rounded)),
+                    ButtonSegment(value: _Range.today, label: Text('الوردية'), icon: Icon(Icons.today_rounded)),
+                    ButtonSegment(value: _Range.period, label: Text('هذا الشهر'), icon: Icon(Icons.calendar_month_rounded)),
                     ButtonSegment(value: _Range.all, label: Text('الكل'), icon: Icon(Icons.all_inclusive_rounded)),
                   ],
                   selected: {_range},

@@ -1,13 +1,14 @@
 import 'dart:convert';
 
 import '../../core/format.dart';
+import '../../services/telegram.dart';
 import '../models.dart';
 import 'base.dart';
 
 class TypeTotal {
   final InvoiceType type;
-  final int count, total, profit;
-  const TypeTotal(this.type, this.count, this.total, this.profit);
+  final int count, total, profit, paid;
+  const TypeTotal(this.type, this.count, this.total, this.profit, [this.paid = 0]);
 }
 
 class ReportSummary {
@@ -25,6 +26,12 @@ class ReportSummary {
   int get netProfit => grossProfit - expenses;
   int get count => byType.entries.where((e) => e.key != InvoiceType.debtPay).fold(0, (s, e) => s + e.value.count);
   int get collectedDebts => byType[InvoiceType.debtPay]?.total ?? 0;
+
+  /// كل المبالغ المستلمة فعلياً (نقدي + الدفعات المقدمة بالآجل + تسديد الديون)
+  int get received => byType.values.fold(0, (s, e) => s + e.paid);
+
+  /// صافي النقد بالصندوق = المستلم − المصروفات
+  int get cash => received - expenses;
 }
 
 class Period {
@@ -37,12 +44,12 @@ class Period {
 class ReportsRepo {
   static Future<ReportSummary> summary(DateTime from, DateTime to) async {
     final a = [from.millisecondsSinceEpoch, to.millisecondsSinceEpoch];
-    final rows = await db.rawQuery('''SELECT type, COUNT(*) c, COALESCE(SUM(total),0) t, COALESCE(SUM(total - cost),0) p
-        FROM invoices WHERE status = 'active' AND created_at >= ? AND created_at < ? GROUP BY type''', a);
+    final rows = await db.rawQuery('''SELECT type, COUNT(*) c, COALESCE(SUM(total),0) t, COALESCE(SUM(total - cost),0) p,
+        COALESCE(SUM(paid),0) pd FROM invoices WHERE status = 'active' AND created_at >= ? AND created_at < ? GROUP BY type''', a);
     final byType = <InvoiceType, TypeTotal>{};
     for (final r in rows) {
       final t = InvoiceTypeX.parse(r['type'].toString());
-      byType[t] = TypeTotal(t, (r['c'] as num).toInt(), (r['t'] as num).toInt(), (r['p'] as num).toInt());
+      byType[t] = TypeTotal(t, (r['c'] as num).toInt(), (r['t'] as num).toInt(), (r['p'] as num).toInt(), (r['pd'] as num).toInt());
     }
     final exp = await db.rawQuery(
         'SELECT COALESCE(SUM(amount),0) s FROM expenses WHERE created_at >= ? AND created_at < ?', a);
@@ -98,6 +105,19 @@ class ReportsRepo {
     return Period(id, (m['started_at'] as num).toInt(), null, '', '');
   }
 
+  /// بداية الوردية الحالية: آخر تصفير أو بداية اليوم (أيهما أحدث).
+  /// كل أرقام "اليوم" تُحسب من هنا، لذلك التصفير يرجعها إلى صفر فوراً.
+  static Future<DateTime> shiftStart() async {
+    final p = await currentPeriod();
+    final day = startOfDay(DateTime.now());
+    final ps = DateTime.fromMillisecondsSinceEpoch(p.startedAt);
+    return ps.isAfter(day) ? ps : day;
+  }
+
+  /// ملخص الوردية الحالية (ما سيُصفّر)
+  static Future<ReportSummary> shiftSummary() async =>
+      summary(await shiftStart(), DateTime.now().add(const Duration(minutes: 1)));
+
   static Future<List<Period>> closedPeriods() async {
     final rows = await db.query('periods', where: 'closed_at IS NOT NULL', orderBy: 'id DESC');
     return rows
@@ -122,6 +142,8 @@ class ReportsRepo {
       'lines_total': s.byType[InvoiceType.line]?.total ?? 0,
       'sales_total': s.byType[InvoiceType.sale]?.total ?? 0,
       'repairs_total': s.byType[InvoiceType.repair]?.total ?? 0,
+      'received': s.received,
+      'cash': s.cash,
     });
     await db.transaction((txn) async {
       await txn.update('periods', {'closed_at': now.millisecondsSinceEpoch, 'closed_by': actor, 'summary': summaryJson},
@@ -130,8 +152,23 @@ class ReportsRepo {
       for (final k in ['sale', 'line', 'debt_pay']) {
         await txn.update('settings', {'value': '0'}, where: 'key = ?', whereArgs: ['counter_$k']);
       }
-      await logActivity(txn, 'تصفير مبيعات الشهر', 'إجمالي الفترة ${money(s.revenue)}');
+      await logActivity(txn, 'تصفير الوردية', 'المبيعات ${money(s.revenue)} • المصروفات ${money(s.expenses)}');
     });
     changed();
+    await TelegramService.instance.notify('sale', [
+      '🔄 <b>تصفير الوردية — تقرير الإغلاق</b>',
+      '🕒 من ${dateTimeMs(cur.startedAt)}',
+      '🕒 إلى ${dateTimeStr(now)}',
+      '🧾 عدد العمليات: ${s.count}',
+      '💰 <b>إجمالي المبيعات: ${money(s.revenue)}</b>',
+      '📶 الخطوط: ${s.byType[InvoiceType.line]?.count ?? 0} • ${money(s.byType[InvoiceType.line]?.total ?? 0)}',
+      '🛍 المنتجات: ${money(s.byType[InvoiceType.sale]?.total ?? 0)}',
+      '🛠 الصيانة: ${money(s.byType[InvoiceType.repair]?.total ?? 0)}',
+      '💵 تسديد ديون: ${money(s.collectedDebts)}',
+      '📥 المستلم: ${money(s.received)}',
+      '💸 المصروفات: ${money(s.expenses)}',
+      '🏦 <b>الصافي بالصندوق: ${money(s.cash)}</b>',
+      '🧑‍💼 ${TelegramService.esc(actor)}',
+    ].join('\n'));
   }
 }

@@ -19,6 +19,7 @@ import '../invoices/invoices_screen.dart';
 import '../lines/line_sale_sheet.dart';
 import '../repairs/repair_form.dart';
 import '../shell/shell.dart';
+import '../shift/shift_reset.dart';
 
 class _DashData {
   final ReportSummary today, yesterday;
@@ -27,7 +28,10 @@ class _DashData {
   final (int, int) debts;
   final int lowStock;
   final List<Invoice> recent;
-  _DashData(this.today, this.yesterday, this.week, this.repairs, this.debts, this.lowStock, this.recent);
+  final DateTime shift;
+  _DashData(this.today, this.yesterday, this.week, this.repairs, this.debts, this.lowStock, this.recent, this.shift);
+  /// هل تم تصفير الوردية اليوم؟
+  bool get resetToday => shift.isAfter(startOfDay(DateTime.now()));
 }
 
 class DashboardScreen extends StatelessWidget {
@@ -38,14 +42,16 @@ class DashboardScreen extends StatelessWidget {
     final t1 = t0.add(const Duration(days: 1));
     final y0 = t0.subtract(const Duration(days: 1));
     final stats = await ProductsRepo.stats();
+    final shift = await ReportsRepo.shiftStart();
     return _DashData(
-      await ReportsRepo.summary(t0, t1),
+      await ReportsRepo.summary(shift, t1),
       await ReportsRepo.summary(y0, t0),
       await ReportsRepo.daily(7),
       await RepairsRepo.counts(),
       await DebtsRepo.openSummary(),
       stats.$5,
-      await SalesRepo.list(limit: 8, includeVoid: false),
+      await SalesRepo.list(limit: 8, includeVoid: false, from: shift),
+      shift,
     );
   }
 
@@ -55,7 +61,7 @@ class DashboardScreen extends StatelessWidget {
       load: _load,
       builder: (context, d) {
         final wide = context.w >= 900;
-        final hero = _HeroCard(today: d.today, yesterday: d.yesterday);
+        final hero = _HeroCard(d: d);
         final stats = _StatsGrid(d: d);
         final actions = const _QuickActions();
         final chart = AppCard(
@@ -67,12 +73,12 @@ class DashboardScreen extends StatelessWidget {
         final recent = AppCard(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            SectionTitle('آخر العمليات',
+            SectionTitle('عمليات الوردية الحالية',
                 trailing: TextButton(onPressed: () => ShellNav.go(Section.invoices), child: const Text('الكل'))),
             if (d.recent.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(20),
-                child: Text('لا توجد عمليات بعد — ابدأ أول عملية بيع', textAlign: TextAlign.center, style: TextStyle(color: context.cs.onSurfaceVariant)),
+                child: Text('لا توجد عمليات في هذه الوردية بعد', textAlign: TextAlign.center, style: TextStyle(color: context.cs.onSurfaceVariant)),
               ),
             for (var i = 0; i < d.recent.length; i++)
               Padding(padding: const EdgeInsets.only(bottom: 8), child: InvoiceTile(invoice: d.recent[i]).stagger(i)),
@@ -121,12 +127,13 @@ class _Greeting extends StatelessWidget {
 }
 
 class _HeroCard extends StatelessWidget {
-  final ReportSummary today, yesterday;
-  const _HeroCard({required this.today, required this.yesterday});
+  final _DashData d;
+  const _HeroCard({required this.d});
 
   @override
   Widget build(BuildContext context) {
-    final diff = yesterday.revenue == 0 ? null : ((today.revenue - yesterday.revenue) / yesterday.revenue * 100).round();
+    final today = d.today, yesterday = d.yesterday;
+    final diff = d.resetToday || yesterday.revenue == 0 ? null : ((today.revenue - yesterday.revenue) / yesterday.revenue * 100).round();
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
@@ -146,7 +153,10 @@ class _HeroCard extends StatelessWidget {
         ),
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            const Text('مبيعات اليوم', style: TextStyle(color: AppColors.ink, fontWeight: FontWeight.w800, fontSize: 16)),
+            Flexible(
+              child: Text(d.resetToday ? 'مبيعات الوردية • منذ ${timeStr(d.shift)}' : 'مبيعات اليوم',
+                  style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w800, fontSize: 16)),
+            ),
             const Spacer(),
             if (diff != null)
               Container(
@@ -167,10 +177,45 @@ class _HeroCard extends StatelessWidget {
             _heroStat(Icons.sim_card_rounded, '${today.byType[InvoiceType.line]?.count ?? 0} خط'),
             if (Session.instance.isAdmin) _heroStat(Icons.savings_rounded, 'ربح ${money(today.grossProfit)}'),
           ]),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(color: AppColors.ink.withValues(alpha: .1), borderRadius: BorderRadius.circular(16)),
+            child: Row(children: [
+              Expanded(child: _money('المستلم', today.received)),
+              Expanded(child: _money('المصروفات', today.expenses)),
+              Expanded(child: _money('بالصندوق', today.cash)),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Pressable(
+              onTap: () => confirmShiftReset(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(color: AppColors.ink, borderRadius: BorderRadius.circular(12)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Session.instance.isAdmin ? Icons.restart_alt_rounded : Icons.lock_rounded, size: 18, color: AppColors.gold),
+                  const SizedBox(width: 6),
+                  const Text('تصفير الوردية', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.w800)),
+                ]),
+              ),
+            ),
+          ),
         ]),
       ]),
     ).animate().fadeIn(duration: 500.ms).scaleXY(begin: .96, end: 1, curve: Curves.easeOutCubic);
   }
+
+  Widget _money(String label, int v) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: TextStyle(color: AppColors.ink.withValues(alpha: .7), fontSize: 12, fontWeight: FontWeight.w700)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(money(v), style: const TextStyle(color: AppColors.ink, fontWeight: FontWeight.w800, fontSize: 15)),
+        ),
+      ]);
 
   Widget _heroStat(IconData i, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
         Icon(i, size: 18, color: AppColors.ink.withValues(alpha: .75)),
@@ -187,12 +232,12 @@ class _StatsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final inShop = d.repairs.entries.where((e) => e.key.isOpen).fold<int>(0, (s, e) => s + e.value);
     final items = [
-      _StatItem('بيع منتجات اليوم', money(d.today.byType[InvoiceType.sale]?.total ?? 0), Icons.shopping_bag_rounded, AppColors.info, Section.pos),
-      _StatItem('خطوط اليوم', money(d.today.byType[InvoiceType.line]?.total ?? 0), Icons.sim_card_rounded, AppColors.asiacell, Section.lines),
+      _StatItem('مبيعات المنتجات', money(d.today.byType[InvoiceType.sale]?.total ?? 0), Icons.shopping_bag_rounded, AppColors.info, Section.pos),
+      _StatItem('مبيعات الخطوط', money(d.today.byType[InvoiceType.line]?.total ?? 0), Icons.sim_card_rounded, AppColors.asiacell, Section.lines),
       _StatItem('أجهزة بالصيانة', '$inShop جهاز', Icons.build_circle_rounded, AppColors.warning, Section.repairs),
       _StatItem('ديون مستحقة', money(d.debts.$2), Icons.menu_book_rounded, const Color(0xFFEC4899), Section.debts),
       _StatItem('نواقص المخزن', '${d.lowStock} صنف', Icons.warning_amber_rounded, AppColors.danger, Section.inventory),
-      _StatItem('مصروفات اليوم', money(d.today.expenses), Icons.account_balance_wallet_rounded, const Color(0xFFF97316), Section.expenses),
+      _StatItem('المصروفات', money(d.today.expenses), Icons.account_balance_wallet_rounded, const Color(0xFFF97316), Section.expenses),
     ];
     return LayoutBuilder(builder: (c, cons) {
       final cols = cons.maxWidth > 560 ? 3 : 2;
