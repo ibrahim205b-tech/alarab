@@ -17,7 +17,7 @@ fun signingValue(env: String, prop: String, fallback: String): String =
 
 android {
     namespace = "com.alialarab.alarab"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
