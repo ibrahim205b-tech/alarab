@@ -167,6 +167,28 @@ class ReceiptBuilder {
     return doc.save();
   }
 
+  static Future<Uint8List> testPage(int paper) async {
+    await _fonts();
+    final s = SettingsRepo.instance;
+    final doc = pw.Document();
+    final fs = paper < 80 ? 8.0 : 9.5;
+    doc.addPage(pw.Page(
+      pageFormat: rollFormat(paper),
+      textDirection: pw.TextDirection.rtl,
+      theme: pw.ThemeData.withFont(base: _regular, bold: _bold),
+      build: (c) => _frame(null, [
+        ..._header(s, fs),
+        _dash(),
+        pw.Center(child: pw.Text('صفحة اختبار الطابعة ✓', style: pw.TextStyle(font: _xbold, fontSize: fs + 3))),
+        pw.Center(child: pw.Text('عرض الورق: $paper مم', style: pw.TextStyle(fontSize: fs))),
+        pw.Center(child: pw.Text(dateTimeStr(DateTime.now()), style: pw.TextStyle(fontSize: fs))),
+        _dash(),
+        ..._footer(s, fs),
+      ]),
+    ));
+    return doc.save();
+  }
+
   static pw.Widget _frame(PdfPageFormat? format, List<pw.Widget> children) {
     final col = pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.stretch, children: children);
     if (format == null || format.height == double.infinity) return col;

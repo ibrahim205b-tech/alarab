@@ -59,8 +59,8 @@ class LinesRepo {
         'line_types',
         {
           if (name != null) 'name': name.trim(),
-          if (color != null) 'color': color,
-          if (carrierId != null) 'carrier_id': carrierId,
+          'color': ?color,
+          'carrier_id': ?carrierId,
           if (active != null) 'active': active ? 1 : 0,
         },
         where: 'id = ?',
@@ -90,8 +90,8 @@ class LinesRepo {
         'services',
         {
           if (name != null) 'name': name.trim(),
-          if (price != null) 'price': price,
-          if (cost != null) 'cost': cost,
+          'price': ?price,
+          'cost': ?cost,
           if (active != null) 'active': active ? 1 : 0,
         },
         where: 'id = ?',
@@ -244,7 +244,7 @@ class LinesRepo {
             'service_name': service.name,
             'amount': amount,
             'cost': service.cost,
-            if (phone != null) 'customer_phone': phone,
+            'customer_phone': ?phone,
           },
           where: 'id = ?',
           whereArgs: [s.id]);
@@ -256,7 +256,7 @@ class LinesRepo {
               'total': amount,
               'paid': amount,
               'cost': service.cost,
-              if (phone != null) 'customer_phone': phone,
+              'customer_phone': ?phone,
               'updated_at': nowMs()
             },
             where: 'id = ?',

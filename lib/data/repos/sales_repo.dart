@@ -170,7 +170,7 @@ class SalesRepo {
       final n = int.tryParse(q.replaceAll(RegExp(r'[^0-9]'), ''));
       where.add('(customer_name LIKE ? OR customer_phone LIKE ? OR note LIKE ?${n != null ? ' OR number = ?' : ''}'
           ' OR id IN (SELECT invoice_id FROM invoice_items WHERE name LIKE ? OR detail LIKE ?))');
-      args.addAll(['%$q%', '%$q%', '%$q%', if (n != null) n, '%$q%', '%$q%']);
+      args.addAll(['%$q%', '%$q%', '%$q%', ?n, '%$q%', '%$q%']);
     }
     final rows = await db.query('invoices',
         where: where.isEmpty ? null : where.join(' AND '), whereArgs: args, orderBy: 'created_at DESC', limit: limit);

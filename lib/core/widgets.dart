@@ -150,7 +150,7 @@ class SheetScaffold extends StatelessWidget {
             color: context.cs.surfaceContainer,
             border: Border(top: BorderSide(color: context.cs.outline.withValues(alpha: .5))),
           ),
-          child: footer,
+          child: SizedBox(width: double.infinity, child: footer),
         ),
     ]);
   }
@@ -837,10 +837,12 @@ class _DataViewState<T> extends State<DataView<T>> {
     final t = ++_token;
     try {
       final d = await widget.load();
-      if (mounted && t == _token) setState(() {
+      if (mounted && t == _token) {
+        setState(() {
         _data = d;
         _error = null;
       });
+      }
     } catch (e) {
       if (mounted && t == _token) setState(() => _error = e);
     }

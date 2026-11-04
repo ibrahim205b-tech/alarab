@@ -6,14 +6,15 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-// مفتاح التوقيع: يُقرأ من متغيرات البيئة (GitHub Secrets) إن وُجدت،
-// وإلا يُستخدم المفتاح المرفق بالمشروع حتى تبقى التحديثات قابلة للتثبيت فوق النسخة السابقة.
+// مفتاح التوقيع: يُقرأ من متغيرات البيئة (يضبطها GitHub Actions) أو من key.properties محلياً.
+// إن لم يوجد مفتاح يُستخدم مفتاح debug.
 val keystoreProps = Properties().apply {
     val f = rootProject.file("key.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-fun signingValue(env: String, prop: String, fallback: String): String =
-    System.getenv(env)?.takeIf { it.isNotBlank() } ?: keystoreProps.getProperty(prop) ?: fallback
+fun signingValue(env: String, prop: String): String? =
+    System.getenv(env)?.takeIf { it.isNotBlank() } ?: keystoreProps.getProperty(prop)
+val releaseStore: String? = signingValue("ALARAB_KEYSTORE_PATH", "storeFile")
 
 android {
     namespace = "com.alialarab.alarab"
@@ -34,17 +35,19 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile = file(signingValue("ALARAB_KEYSTORE_PATH", "storeFile", "alarab-release.jks"))
-            storePassword = signingValue("ALARAB_KEYSTORE_PASSWORD", "storePassword", "alarab2026")
-            keyAlias = signingValue("ALARAB_KEY_ALIAS", "keyAlias", "alarab")
-            keyPassword = signingValue("ALARAB_KEY_PASSWORD", "keyPassword", "alarab2026")
+        if (releaseStore != null && file(releaseStore).exists()) {
+            create("release") {
+                storeFile = file(releaseStore)
+                storePassword = signingValue("ALARAB_KEYSTORE_PASSWORD", "storePassword")
+                keyAlias = signingValue("ALARAB_KEY_ALIAS", "keyAlias")
+                keyPassword = signingValue("ALARAB_KEY_PASSWORD", "keyPassword")
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = false
             isShrinkResources = false
         }

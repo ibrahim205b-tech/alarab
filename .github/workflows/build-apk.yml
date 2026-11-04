@@ -12,6 +12,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      HAS_SECRET_KEY: ${{ secrets.ALARAB_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -35,16 +37,47 @@ jobs:
       - name: الاختبارات
         run: flutter test
 
-      - name: مفتاح التوقيع من الأسرار (اختياري)
-        env:
-          KEYSTORE_B64: ${{ secrets.ALARAB_KEYSTORE_BASE64 }}
-        if: ${{ env.KEYSTORE_B64 != '' }}
+      # التوقيع: مفتاح ثابت ضروري حتى تُثبَّت التحديثات فوق النسخة القديمة بدون حذف البيانات.
+      # 1) إن وُجد السر ALARAB_KEYSTORE_BASE64 يُستخدم (الطريقة الدائمة الموصى بها)
+      # 2) وإلا يُنشأ مفتاح مرة واحدة ويُحفظ في ذاكرة GitHub Actions الخاصة بالمستودع
+      - name: مفتاح التوقيع من الأسرار
+        if: env.HAS_SECRET_KEY == 'true'
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          echo "ALARAB_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-          echo "ALARAB_KEYSTORE_PASSWORD=${{ secrets.ALARAB_KEYSTORE_PASSWORD }}" >> "$GITHUB_ENV"
-          echo "ALARAB_KEY_ALIAS=${{ secrets.ALARAB_KEY_ALIAS }}" >> "$GITHUB_ENV"
-          echo "ALARAB_KEY_PASSWORD=${{ secrets.ALARAB_KEY_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "${{ secrets.ALARAB_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "ALARAB_KEYSTORE_PATH=$RUNNER_TEMP/release.jks"
+            echo "ALARAB_KEYSTORE_PASSWORD=${{ secrets.ALARAB_KEYSTORE_PASSWORD }}"
+            echo "ALARAB_KEY_ALIAS=${{ secrets.ALARAB_KEY_ALIAS }}"
+            echo "ALARAB_KEY_PASSWORD=${{ secrets.ALARAB_KEY_PASSWORD }}"
+          } >> "$GITHUB_ENV"
+
+      - name: استرجاع مفتاح التوقيع المحفوظ
+        if: env.HAS_SECRET_KEY != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.alarab-signing
+          key: alarab-signing-key-v1
+
+      - name: تجهيز مفتاح التوقيع
+        if: env.HAS_SECRET_KEY != 'true'
+        run: |
+          D="$HOME/.alarab-signing"
+          mkdir -p "$D"
+          if [ ! -f "$D/release.jks" ]; then
+            PASS=$(openssl rand -hex 16)
+            keytool -genkeypair -keystore "$D/release.jks" -alias alarab -keyalg RSA -keysize 2048 \
+              -validity 10000 -storepass "$PASS" -keypass "$PASS" -dname "CN=Ali Alarab, O=Alarab Sales, C=IQ"
+            printf '%s' "$PASS" > "$D/pass"
+            echo "تم إنشاء مفتاح توقيع جديد"
+          fi
+          PASS=$(cat "$D/pass")
+          echo "::add-mask::$PASS"
+          {
+            echo "ALARAB_KEYSTORE_PATH=$D/release.jks"
+            echo "ALARAB_KEYSTORE_PASSWORD=$PASS"
+            echo "ALARAB_KEY_ALIAS=alarab"
+            echo "ALARAB_KEY_PASSWORD=$PASS"
+          } >> "$GITHUB_ENV"
 
       - name: بناء APK
         run: |
