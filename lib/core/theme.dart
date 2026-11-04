@@ -185,7 +185,6 @@ class AppTheme {
       ),
       pageTransitionsTheme: const PageTransitionsTheme(builders: {
         TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
-        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       }),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: scheme.primary,
