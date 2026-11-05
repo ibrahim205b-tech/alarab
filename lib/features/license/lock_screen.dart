@@ -47,7 +47,7 @@ class _LockScreenState extends State<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final expired = lic.status == LicenseStatus.expired;
-    final contact = SettingsRepo.instance.get('provider_contact');
+    final contact = SettingsRepo.instance.get('provider_contact', defaultProviderContact);
     return Scaffold(
       body: AmbientBackground(
         child: SafeArea(

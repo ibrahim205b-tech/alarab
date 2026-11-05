@@ -834,7 +834,7 @@ class SubscriptionPage extends StatefulWidget {
 
 class _SubscriptionPageState extends State<SubscriptionPage> {
   final _code = TextEditingController();
-  late final _contact = TextEditingController(text: _s.get('provider_contact'));
+  late final _contact = TextEditingController(text: _s.get('provider_contact', defaultProviderContact));
   bool _busy = false;
 
   LicenseService get lic => LicenseService.instance;
