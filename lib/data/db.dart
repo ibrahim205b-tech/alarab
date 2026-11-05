@@ -318,6 +318,7 @@ class AppDb {
       'counter_line': '0',
       'counter_repair': '0',
       'counter_debt_pay': '0',
+      'provider_contact': '',
       'printer_mode': 'none',
       'paper_width': '58',
       'auto_print': '0',

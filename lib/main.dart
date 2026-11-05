@@ -9,6 +9,7 @@ import 'data/db.dart';
 import 'data/repos/settings_repo.dart';
 import 'data/repos/users_repo.dart';
 import 'services/backup.dart';
+import 'services/license.dart';
 import 'services/telegram.dart';
 
 Future<void> main() async {
@@ -21,6 +22,7 @@ Future<void> main() async {
     await AppDb.instance.open();
     await SettingsRepo.instance.load();
     AdminGate.verifier = (pin) async => await UsersRepo.verifyAnyAdmin(pin) != null;
+    await LicenseService.instance.init();
     TelegramService.instance.startAutoRetry();
     unawaited(TelegramService.instance.flush());
     unawaited(BackupService.autoBackup());

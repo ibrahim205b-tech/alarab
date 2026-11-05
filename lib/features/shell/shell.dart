@@ -8,6 +8,7 @@ import '../../core/widgets.dart';
 import '../../data/repos/settings_repo.dart';
 import '../../services/session.dart';
 import '../admin/admin_pages.dart';
+import '../../services/license.dart';
 import '../admin/admin_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../debts/debt_sheet.dart';
@@ -134,6 +135,7 @@ class _HomeShellState extends State<HomeShell> {
 
         final content = Column(children: [
           _TopBar(section: section),
+          const _LicenseBanner(),
           Expanded(child: body),
         ]);
 
@@ -413,5 +415,42 @@ class _NavItem extends StatelessWidget {
             ]),
     );
     return Pressable(onTap: onTap, child: Tooltip(message: section.title, child: item));
+  }
+}
+
+/// شريط تنبيه عند اقتراب انتهاء الاشتراك
+class _LicenseBanner extends StatelessWidget {
+  const _LicenseBanner();
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: LicenseService.instance,
+      builder: (context, _) {
+        final lic = LicenseService.instance;
+        if (!lic.expiringSoon) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.warning.withValues(alpha: .15),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.warning.withValues(alpha: .5)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.timer_rounded, color: AppColors.warning, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('ينتهي الاشتراك بعد ${lic.daysLeft} يوم — راجع المزوّد للتجديد',
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            if (Session.instance.isAdmin)
+              TextButton(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPage())),
+                child: const Text('تجديد'),
+              ),
+          ]),
+        );
+      },
+    );
   }
 }

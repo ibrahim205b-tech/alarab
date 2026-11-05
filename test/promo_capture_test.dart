@@ -21,6 +21,8 @@ import 'package:alarab/services/receipt.dart';
 import 'package:alarab/services/session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:alarab/services/license.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -150,6 +152,11 @@ void main() {
     await AppDb.instance.open(path: inMemoryDatabasePath);
     await SettingsRepo.instance.load();
     AdminGate.verifier = (pin) async => await UsersRepo.verifyAnyAdmin(pin) != null;
+    SharedPreferences.setMockInitialValues({
+      'lic_device_id': '7K2M9X4QAB12',
+      'lic_expiry_ms': DateTime.now().add(const Duration(days: 120)).millisecondsSinceEpoch,
+    });
+    await LicenseService.instance.init();
   });
   tearDown(() => AppDb.instance.close());
 

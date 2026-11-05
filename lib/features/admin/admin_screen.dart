@@ -5,12 +5,24 @@ import '../../core/version.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/repos/reports_repo.dart';
+import '../../services/license.dart';
 import '../../data/repos/settings_repo.dart';
 import '../../services/printer.dart';
 import '../../services/telegram.dart';
 import '../shift/shift_reset.dart';
 import 'admin_pages.dart';
 import 'catalog_page.dart';
+
+String _subLabel() => switch (LicenseService.instance.status) {
+      LicenseStatus.active => 'مفعّل • باقي ${LicenseService.instance.daysLeft} يوم',
+      LicenseStatus.expired => 'انتهى — بحاجة تجديد',
+      LicenseStatus.notActivated => 'غير مفعّل',
+    };
+Color _subColor() => switch (LicenseService.instance.status) {
+      LicenseStatus.active => AppColors.success,
+      LicenseStatus.expired => AppColors.danger,
+      LicenseStatus.notActivated => AppColors.warning,
+    };
 
 class AdminScreen extends StatelessWidget {
   const AdminScreen({super.key});
@@ -47,6 +59,7 @@ class AdminScreen extends StatelessWidget {
           ('النسخ الاحتياطي', 'حفظ واستعادة كل البيانات', Icons.backup_rounded, AppColors.teal, () => const BackupPage()),
           ('أقسام المخزن', 'إضافة أقسام جديدة للمنتجات', Icons.category_rounded, const Color(0xFFEC4899), () => const CategoriesPage()),
           ('سجل العمليات', 'من أضاف، باع، عدّل أو حذف', Icons.history_rounded, const Color(0xFF64748B), () => const ActivityPage()),
+          ('الاشتراك', _subLabel(), Icons.workspace_premium_rounded, _subColor(), () => const SubscriptionPage()),
           ('حول البرنامج', 'الإصدار $appVersion • $developerName', Icons.info_rounded, AppColors.gold, () => const AboutPage()),
         ];
         return ListView(

@@ -81,7 +81,9 @@ jobs:
 
       - name: بناء APK
         run: |
-          flutter build apk --release --build-number=${{ github.run_number }}
+          SECRET="${{ secrets.ALARAB_LICENSE_SECRET }}"
+          if [ -n "$SECRET" ]; then DEFINE="--dart-define=ALARAB_LICENSE_SECRET=$SECRET"; fi
+          flutter build apk --release --build-number=${{ github.run_number }} $DEFINE
           mkdir -p out
           cp build/app/outputs/flutter-apk/app-release.apk "out/alarab-v1.1.${{ github.run_number }}.apk"
 

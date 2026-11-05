@@ -8,7 +8,9 @@ import 'data/repos/settings_repo.dart';
 import 'data/repos/users_repo.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/setup_screen.dart';
+import 'features/license/lock_screen.dart';
 import 'features/shell/shell.dart';
+import 'services/license.dart';
 import 'services/session.dart';
 import 'services/telegram.dart';
 
@@ -58,8 +60,54 @@ class AlarabApp extends StatelessWidget {
                   message: startupError.toString(),
                 ),
               )
-            : const AuthGate(),
+            : const LicenseGate(child: AuthGate()),
       ),
+    );
+  }
+}
+
+/// بوابة الاشتراك: تعرض شاشة القفل إذا لم يكن مفعّلاً أو انتهت المدة،
+/// وإلا تعرض البرنامج. تُعيد الفحص عند عودة التطبيق للمقدمة.
+class LicenseGate extends StatefulWidget {
+  final Widget child;
+  const LicenseGate({super.key, required this.child});
+  @override
+  State<LicenseGate> createState() => _LicenseGateState();
+}
+
+class _LicenseGateState extends State<LicenseGate> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      LicenseService.instance.touch();
+      if (mounted) setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: LicenseService.instance,
+      builder: (context, _) {
+        final locked = !LicenseService.instance.unlocked;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 500),
+          switchInCurve: Curves.easeOutCubic,
+          child: locked ? const LockScreen(key: ValueKey('lock')) : KeyedSubtree(key: const ValueKey('app'), child: widget.child),
+        );
+      },
     );
   }
 }

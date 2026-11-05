@@ -18,7 +18,9 @@ import 'package:alarab/features/shell/shell.dart';
 import 'package:alarab/services/session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:alarab/services/license.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 final shots = Platform.environment['SCREENSHOTS'] == '1';
@@ -96,6 +98,11 @@ void main() {
     await AppDb.instance.open(path: inMemoryDatabasePath);
     await SettingsRepo.instance.load();
     AdminGate.verifier = (pin) async => await UsersRepo.verifyAnyAdmin(pin) != null;
+    SharedPreferences.setMockInitialValues({
+      'lic_device_id': '7K2M9X4QAB12',
+      'lic_expiry_ms': DateTime.now().add(const Duration(days: 120)).millisecondsSinceEpoch,
+    });
+    await LicenseService.instance.init();
   });
 
   tearDown(() async {
@@ -162,6 +169,26 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     });
   }
+
+  testWidgets('lock screen renders when not activated', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({'lic_device_id': '7K2M9X4QAB12'}); // لا يوجد اشتراك
+    await tester.runAsync(() async {
+      await LicenseService.instance.init();
+      await LicenseService.instance.debugReset(device: '7K2M9X4QAB12', expiry: 0);
+      await SettingsRepo.instance.set('provider_contact', '0770 123 4567');
+    });
+    await tester.pumpWidget(const AlarabApp());
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 60)));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    expect(find.text('البرنامج غير مفعّل'), findsOneWidget);
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/phone_lock.png'));
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   testWidgets('login screen renders', (tester) async {
     tester.view.physicalSize = const Size(1080, 2340);

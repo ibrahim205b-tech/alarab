@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/brand.dart';
 import '../../core/format.dart';
 import '../../core/version.dart';
+import '../../services/license.dart';
+import '../../core/license_crypto.dart';
 import '../../data/repos/base.dart' as base;
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
@@ -816,5 +819,133 @@ class AboutPage extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+// =====================================================================
+// الاشتراك (للمدير/المزوّد)
+// =====================================================================
+
+class SubscriptionPage extends StatefulWidget {
+  const SubscriptionPage({super.key});
+  @override
+  State<SubscriptionPage> createState() => _SubscriptionPageState();
+}
+
+class _SubscriptionPageState extends State<SubscriptionPage> {
+  final _code = TextEditingController();
+  late final _contact = TextEditingController(text: _s.get('provider_contact'));
+  bool _busy = false;
+
+  LicenseService get lic => LicenseService.instance;
+
+  Future<void> _renew() async {
+    setState(() => _busy = true);
+    final ok = await lic.activate(_code.text);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok) {
+      _code.clear();
+      toast(context, 'تم تمديد الاشتراك حتى ${dateMs(lic.expiryMs)}');
+    } else {
+      toast(context, 'الكود غير صحيح أو لا يخص هذا الجهاز', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: lic,
+      builder: (context, _) {
+        final (label, color) = switch (lic.status) {
+          LicenseStatus.active => ('مفعّل', AppColors.success),
+          LicenseStatus.expired => ('منتهٍ', AppColors.danger),
+          LicenseStatus.notActivated => ('غير مفعّل', AppColors.warning),
+        };
+        return _Page(title: 'الاشتراك', children: [
+          AppCard(
+            borderColor: color.withValues(alpha: .4),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                IconBadge(icon: Icons.workspace_premium_rounded, color: color, size: 50),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('حالة الاشتراك', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                    Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 15)),
+                  ]),
+                ),
+                if (lic.status == LicenseStatus.active) Pill('باقي ${lic.daysLeft} يوم', color: color),
+              ]),
+              const Divider(height: 24),
+              InfoRow('رمز الجهاز', lic.deviceIdShown, icon: Icons.fingerprint_rounded, bold: true),
+              if (lic.expiryDate != null) InfoRow('ينتهي بتاريخ', dateMs(lic.expiryMs), icon: Icons.event_busy_rounded),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: lic.deviceIdShown));
+                  toast(context, 'تم نسخ رمز الجهاز');
+                },
+                icon: const Icon(Icons.copy_rounded),
+                label: const Text('نسخ رمز الجهاز'),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          AppCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const SectionTitle('تجديد / تمديد الاشتراك', subtitle: 'أدخل كود التفعيل الذي زوّدك به المطوّر'),
+              TextField(
+                controller: _code,
+                textAlign: TextAlign.center,
+                textCapitalization: TextCapitalization.characters,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: 2),
+                inputFormatters: [_SubCodeFormatter()],
+                decoration: const InputDecoration(hintText: 'XXXXX-XXXXX', hintTextDirection: TextDirection.ltr, prefixIcon: Icon(Icons.vpn_key_rounded)),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _busy ? null : _renew,
+                icon: const Icon(Icons.check_circle_rounded),
+                label: const Text('تفعيل الكود'),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          AppCard(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const SectionTitle('رقم المزوّد', subtitle: 'يظهر في شاشة التفعيل ليتواصل معك صاحب المحل'),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: _contact,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: 'رقم الهاتف / واتساب', prefixIcon: Icon(Icons.call_rounded)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton(
+                  onPressed: () async {
+                    await _s.set('provider_contact', _contact.text.trim());
+                    if (context.mounted) toast(context, 'تم الحفظ');
+                  },
+                  child: const Text('حفظ'),
+                ),
+              ]),
+            ]),
+          ),
+        ]);
+      },
+    );
+  }
+}
+
+class _SubCodeFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final clean = normalizeCode(newValue.text);
+    final limited = clean.length > 10 ? clean.substring(0, 10) : clean;
+    final text = limited.length > 5 ? '${limited.substring(0, 5)}-${limited.substring(5)}' : limited;
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
   }
 }
