@@ -152,6 +152,10 @@ void main() {
       await settle();
       await tester.enterText(find.byType(TextField).first, 'A12');
       await shot('protectors_search');
+      await tester.tap(find.text('ربط لاصقات المخزن بالتوافقات'));
+      await shot('link_stock');
+      tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+      await settle();
 
       ShellNav.go(Section.dashboard);
       await settle();

@@ -6,6 +6,7 @@ import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/repos/protectors_repo.dart';
 import '../inventory/inventory_screen.dart';
+import 'link_stock_page.dart';
 
 /// قسم توافقات لاصقات الحماية: اكتب اسم أي جهاز فتظهر كل الأجهزة التي تركب عليها نفس اللاصقة
 class ProtectorsScreen extends StatefulWidget {
@@ -57,6 +58,12 @@ class _ProtectorsScreenState extends State<ProtectorsScreen> {
                       ),
                     ]),
                   ).animate().fadeIn().slideY(begin: -.1, end: 0),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LinkStockPage())),
+                    icon: const Icon(Icons.link_rounded),
+                    label: const Text('ربط لاصقات المخزن بالتوافقات'),
+                  ),
                   const SizedBox(height: 12),
                   SearchField(
                     hint: 'مثال: A12 أو iPhone 13 أو ريدمي نوت 10',
@@ -172,6 +179,40 @@ class _GroupCard extends StatelessWidget {
   }
 }
 
+Future<void> _linkFromStock(BuildContext context, ProtectorGroup g) async {
+  if (!await AdminGate.require(context, reason: 'ربط التوافقات للمدير')) return;
+  final items = (await ProtectorsRepo.stockProtectors()).where((p) => p.protectorGroupId != g.id).toList();
+  if (!context.mounted) return;
+  if (items.isEmpty) {
+    toast(context, 'لا توجد لاصقات أخرى بالمخزن — أضفها من المخزن أولاً', error: true);
+    return;
+  }
+  final chosen = await showAppSheet<Product>(
+    context,
+    SheetScaffold(
+      title: 'اختر اللاصقة',
+      icon: Icons.add_link_rounded,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('سيتم ربطها بمجموعة: ${g.name}', style: TextStyle(color: context.cs.onSurfaceVariant)),
+        const SizedBox(height: 8),
+        for (final p in items)
+          Builder(
+            builder: (c) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.shield_rounded, color: p.protectorGroupId == null ? AppColors.warning : c.cs.onSurfaceVariant),
+              title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(p.protectorGroupId == null ? 'غير مربوطة • الكمية ${p.qty}' : 'مربوطة بمجموعة أخرى • الكمية ${p.qty}'),
+              onTap: () => Navigator.pop(c, p),
+            ),
+          ),
+      ]),
+    ),
+  );
+  if (chosen == null) return;
+  await ProtectorsRepo.link(chosen, g.id);
+  if (context.mounted) toast(context, 'تم ربط ${chosen.name}');
+}
+
 class _GroupEditor extends StatefulWidget {
   final ProtectorGroup? group;
   const _GroupEditor({this.group});
@@ -247,6 +288,14 @@ class _GroupEditorState extends State<_GroupEditor> {
                       ),
                   ]);
                 },
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (current != null) ...[
+              OutlinedButton.icon(
+                onPressed: () => _linkFromStock(context, current),
+                icon: const Icon(Icons.add_link_rounded),
+                label: const Text('ربط لاصقة من المخزن بهذه المجموعة'),
               ),
               const SizedBox(height: 14),
             ],

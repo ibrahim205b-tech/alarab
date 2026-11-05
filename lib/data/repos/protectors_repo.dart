@@ -1,3 +1,4 @@
+import '../../core/format.dart';
 import '../db.dart';
 import '../models.dart';
 import 'base.dart';
@@ -119,4 +120,60 @@ class ProtectorsRepo {
           where: 'protector_group_id = ? AND active = 1', whereArgs: [groupId], orderBy: 'qty DESC'))
       .map(Product.fromMap)
       .toList();
+
+  /// كل اللاصقات الموجودة بالمخزن (قسم لاصقات حماية، أو اسمها يحتوي "لاصق")
+  static Future<List<Product>> stockProtectors() async {
+    final rows = await db.rawQuery('''SELECT p.* FROM products p LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.active = 1 AND (c.icon = 'shield' OR p.name LIKE '%لاصق%' OR p.name LIKE '%glass%' OR p.name LIKE '%زجاج%')
+        ORDER BY CASE WHEN p.protector_group_id IS NULL THEN 0 ELSE 1 END, p.name''');
+    return rows.map(Product.fromMap).toList();
+  }
+
+  /// يقترح مجموعة التوافق من اسم المنتج أو الموديل: يبحث عن أطول اسم جهاز موجود داخل اسم المنتج
+  /// مثال: "لاصقة 9D سامسونج A12" ← مجموعة Samsung A12 / A02 / A32 5G
+  static (ProtectorGroup, ProtectorModel)? suggest(List<ProtectorGroup> groups, Product p) {
+    final text = protectorKey('${p.name} ${p.brand} ${p.model}');
+    (ProtectorGroup, ProtectorModel)? best;
+    var bestLen = 0;
+    for (final g in groups) {
+      for (final m in g.models) {
+        for (final key in {protectorKey(m.model), protectorKey('${m.brand} ${m.model}')}) {
+          // نتجنب المطابقات القصيرة جداً (مثل "a8") إلا إذا كانت كلمة كاملة
+          if (key.length < 3 || !text.contains(key)) continue;
+          final end = text.indexOf(key) + key.length;
+          // "a12" لا يجب أن يطابق "a125g": الحرف التالي يجب ألا يكون رقماً
+          if (end < text.length && RegExp(r'[0-9]').hasMatch(text[end])) continue;
+          if (key.length > bestLen) {
+            bestLen = key.length;
+            best = (g, m);
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  static Future<void> link(Product p, int? groupId) async {
+    await db.update('products', {'protector_group_id': groupId, 'updated_at': nowMs()}, where: 'id = ?', whereArgs: [p.id]);
+    await logActivity(db, groupId == null ? 'فك ربط لاصقة' : 'ربط لاصقة بالتوافقات', p.name);
+    changed();
+  }
+
+  /// ربط تلقائي لكل اللاصقات غير المربوطة. يعيد عدد ما تم ربطه
+  static Future<int> autoLinkAll() async {
+    final groups = await ProtectorsRepo.groups();
+    final items = (await stockProtectors()).where((p) => p.protectorGroupId == null);
+    var n = 0;
+    await db.transaction((txn) async {
+      for (final p in items) {
+        final s = suggest(groups, p);
+        if (s == null) continue;
+        await txn.update('products', {'protector_group_id': s.$1.id, 'updated_at': nowMs()}, where: 'id = ?', whereArgs: [p.id]);
+        n++;
+      }
+      if (n > 0) await logActivity(txn, 'ربط تلقائي للاصقات', '$n منتج');
+    });
+    changed();
+    return n;
+  }
 }

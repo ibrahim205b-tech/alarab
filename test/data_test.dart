@@ -179,6 +179,33 @@ void main() {
     expect((await ProductsRepo.byId(pid))!.qty, 100);
   });
 
+  test('auto-link stock protectors to compatibility groups', () async {
+    final cats = await ProductsRepo.categories();
+    final shield = cats.firstWhere((c) => c.icon == 'shield').id;
+    Future<int> add(String name) => ProductsRepo.create(Product(id: 0, name: name, categoryId: shield, price: 5000), 10);
+    final ids = {
+      'A12': await add('لاصقة 9D سامسونج A12'),
+      'ip13': await add('لاصقه ايفون 13'),
+      'ip13pm': await add('زجاج حماية iPhone 13 Pro Max'),
+      'note10pro': await add('لاصقة ريدمي نوت 10 برو'),
+      'a125g': await add('لاصقة A125G'),
+      'unknown': await add('لاصقة عامة 6.5'),
+    };
+    final groups = await ProtectorsRepo.groups();
+    final n = await ProtectorsRepo.autoLinkAll();
+    expect(n, 4);
+    Future<String?> g(String k) async {
+      final p = (await ProductsRepo.byId(ids[k]!))!;
+      return groups.where((x) => x.id == p.protectorGroupId).firstOrNull?.name;
+    }
+    expect(await g('A12'), contains('A12'));
+    expect(await g('ip13'), 'iPhone 12 / 13 / 14');
+    expect(await g('ip13pm'), contains('13 Pro Max'));
+    expect(await g('note10pro'), contains('Note 10 Pro'));
+    expect(await g('a125g'), isNull);
+    expect(await g('unknown'), isNull);
+  });
+
   test('cannot remove last admin', () async {
     final admin = (await UsersRepo.all()).single;
     await expectLater(UsersRepo.update(admin.id, active: false), throwsException);
