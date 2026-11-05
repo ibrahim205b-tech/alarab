@@ -83,6 +83,17 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         ]),
                       ),
                       Text(money(list[i].amount), style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.danger)),
+                      IconButton(
+                        tooltip: 'حذف',
+                        icon: Icon(Icons.delete_outline_rounded, color: context.cs.onSurfaceVariant),
+                        onPressed: () async {
+                          if (!await AdminGate.require(context, reason: 'حذف المصروفات للمدير فقط')) return;
+                          if (!context.mounted) return;
+                          if (await confirm(context, 'حذف المصروف؟', '${list[i].category} — ${money(list[i].amount)}', danger: true, ok: 'حذف')) {
+                            await ExpensesRepo.delete(list[i]);
+                          }
+                        },
+                      ),
                     ]),
                   ).stagger(i),
                 ),

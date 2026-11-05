@@ -225,6 +225,61 @@ class SalesRepo {
     changed();
   }
 
+  /// إرجاع جزء من فاتورة بيع (مدير فقط): يرجع القطع للمخزن ويخصم قيمتها من الفاتورة.
+  /// إذا أُرجعت كل المواد تُلغى الفاتورة بالكامل.
+  static Future<Invoice> returnItem(Invoice inv, InvoiceItem item, int qty, {String reason = ''}) async {
+    if (inv.type != InvoiceType.sale) throw Exception('الإرجاع متاح لفواتير بيع المنتجات فقط');
+    if (inv.isVoid) throw Exception('الفاتورة ملغاة');
+    if (qty <= 0 || qty > item.qty) throw Exception('العدد غير صحيح');
+    final remainingUnits = inv.items.fold<int>(0, (s, i) => s + i.qty) - qty;
+    if (remainingUnits <= 0) {
+      await voidInvoice(inv, reason.isEmpty ? 'إرجاع كل المواد' : reason);
+      return (await get(inv.id))!;
+    }
+    await db.transaction((txn) async {
+      if (qty == item.qty) {
+        await txn.delete('invoice_items', where: 'id = ?', whereArgs: [item.id]);
+      } else {
+        await txn.update('invoice_items', {'qty': item.qty - qty}, where: 'id = ?', whereArgs: [item.id]);
+      }
+      final subtotal = inv.subtotal - item.price * qty;
+      final discount = inv.discount > subtotal ? subtotal : inv.discount;
+      final total = subtotal - discount;
+      final paid = inv.payment == 'credit' ? (inv.paid > total ? total : inv.paid) : total;
+      final note = [inv.note, 'مرتجع: ${item.name} × $qty${reason.isNotEmpty ? ' ($reason)' : ''}'].where((e) => e.isNotEmpty).join(' • ');
+      await txn.update(
+          'invoices',
+          {
+            'subtotal': subtotal,
+            'discount': discount,
+            'total': total,
+            'paid': paid,
+            'cost': inv.cost - item.cost * qty,
+            'note': note,
+            'updated_at': nowMs(),
+          },
+          where: 'id = ?',
+          whereArgs: [inv.id]);
+      if (inv.payment == 'credit') {
+        await txn.rawUpdate(
+            "UPDATE debts SET amount = ?, status = CASE WHEN paid >= ? THEN 'closed' ELSE 'open' END WHERE invoice_id = ?",
+            [total, total, inv.id]);
+      }
+      if (item.productId != null) {
+        await ProductsRepo.changeQty(txn, item.productId!, qty, 'return', ref: inv.code, note: reason);
+      }
+      await logActivity(txn, 'إرجاع مادة', '${inv.code}: ${item.name} × $qty — ${money(item.price * qty)}');
+    });
+    changed();
+    await TelegramService.instance.notify('sale', [
+      '↩️ <b>إرجاع من الفاتورة ${inv.code}</b>',
+      '▫️ ${TelegramService.esc(item.name)} × $qty = ${money(item.price * qty)}',
+      if (reason.isNotEmpty) '📝 ${TelegramService.esc(reason)}',
+      '🧑‍💼 ${TelegramService.esc(actor)} • 🕒 ${dateTimeStr(DateTime.now())}',
+    ].join('\n'));
+    return (await get(inv.id))!;
+  }
+
   /// تعديل بيانات فاتورة (مدير فقط)
   static Future<void> edit(Invoice inv, {String? customerName, String? customerPhone, int? discount, String? note}) async {
     final newDiscount = discount ?? inv.discount;

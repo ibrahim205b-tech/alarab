@@ -160,6 +160,25 @@ void main() {
     expect((await ReportsRepo.closedPeriods()).length, 1);
   });
 
+  test('partial return restocks and reduces invoice; duplicate barcode rejected', () async {
+    final pid = await ProductsRepo.create(
+        const Product(id: 0, name: 'سماعة انكر', barcode: '6901234567890', cost: 6000, price: 10000), 100);
+    await expectLater(
+        ProductsRepo.create(const Product(id: 0, name: 'نسخة', barcode: '6901234567890', price: 1), 1), throwsException);
+    final p = (await ProductsRepo.byId(pid))!;
+    final inv = await SalesRepo.checkout(cart: [CartLine(p, qty: 100)]);
+    expect((await ProductsRepo.byId(pid))!.qty, 0);
+    final after = await SalesRepo.returnItem(inv, inv.items.isNotEmpty ? (await SalesRepo.get(inv.id))!.items.first : inv.items.first, 30);
+    expect(after.total, 700000);
+    expect(after.cost, 420000);
+    expect(after.items.single.qty, 70);
+    expect((await ProductsRepo.byId(pid))!.qty, 30);
+    // إرجاع الباقي يلغي الفاتورة
+    final last = await SalesRepo.returnItem(after, after.items.single, 70);
+    expect(last.isVoid, true);
+    expect((await ProductsRepo.byId(pid))!.qty, 100);
+  });
+
   test('cannot remove last admin', () async {
     final admin = (await UsersRepo.all()).single;
     await expectLater(UsersRepo.update(admin.id, active: false), throwsException);

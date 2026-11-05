@@ -5,15 +5,17 @@ import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/repos/products_repo.dart';
 import '../../data/repos/protectors_repo.dart';
+import '../scan/scanner_page.dart';
 
 /// نموذج إضافة/تعديل منتج
-Future<void> showProductForm(BuildContext context, {Product? edit, int? categoryId}) =>
-    showAppSheet(context, _ProductForm(edit: edit, categoryId: categoryId), maxWidth: 760);
+Future<void> showProductForm(BuildContext context, {Product? edit, int? categoryId, String? barcode}) =>
+    showAppSheet(context, _ProductForm(edit: edit, categoryId: categoryId, barcode: barcode), maxWidth: 760);
 
 class _ProductForm extends StatefulWidget {
   final Product? edit;
   final int? categoryId;
-  const _ProductForm({this.edit, this.categoryId});
+  final String? barcode;
+  const _ProductForm({this.edit, this.categoryId, this.barcode});
   @override
   State<_ProductForm> createState() => _ProductFormState();
 }
@@ -27,7 +29,7 @@ class _ProductFormState extends State<_ProductForm> {
   late final _storage = TextEditingController(text: e?.storage);
   late final _color = TextEditingController(text: e?.color);
   late final _imei = TextEditingController(text: e?.imei);
-  late final _barcode = TextEditingController(text: e?.barcode);
+  late final _barcode = TextEditingController(text: e?.barcode ?? widget.barcode);
   late final _cost = TextEditingController(text: e == null || e!.cost == 0 ? '' : numFmt(e!.cost));
   late final _price = TextEditingController(text: e == null ? '' : numFmt(e!.price));
   late final _qty = TextEditingController(text: e == null ? '1' : '${e!.qty}');
@@ -163,7 +165,11 @@ class _ProductFormState extends State<_ProductForm> {
                     TextFormField(
                       controller: _imei,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'IMEI / الرقم التسلسلي', prefixIcon: Icon(Icons.qr_code_2_rounded)),
+                      decoration: InputDecoration(
+                        labelText: 'IMEI / الرقم التسلسلي',
+                        prefixIcon: const Icon(Icons.qr_code_2_rounded),
+                        suffixIcon: ScanButton(title: 'امسح IMEI', onCode: (v) => setState(() => _imei.text = v)),
+                      ),
                     ),
                   ]),
           ),
@@ -189,7 +195,11 @@ class _ProductFormState extends State<_ProductForm> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _barcode,
-            decoration: const InputDecoration(labelText: 'الباركود (اختياري — يدعم قارئ الباركود)', prefixIcon: Icon(Icons.qr_code_scanner_rounded)),
+            decoration: InputDecoration(
+              labelText: 'الباركود (اختياري)',
+              prefixIcon: const Icon(Icons.qr_code_rounded),
+              suffixIcon: ScanButton(onCode: (v) => setState(() => _barcode.text = v)),
+            ),
           ),
           const SizedBox(height: 16),
           _row([
@@ -197,20 +207,15 @@ class _ProductFormState extends State<_ProductForm> {
             MoneyField(controller: _price, label: 'سعر البيع *', validator: (v) => v <= 0 ? 'سعر البيع مطلوب' : null),
           ]),
           const SizedBox(height: 12),
-          _row([
-            if (e == null)
-              TextFormField(
-                controller: _qty,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'الكمية *', prefixIcon: Icon(Icons.numbers_rounded)),
-                validator: (v) => (int.tryParse(v ?? '') ?? -1) < 0 ? 'رقم صحيح' : null,
-              ),
-            TextFormField(
-              controller: _minQty,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'تنبيه عند نزول الكمية إلى', prefixIcon: Icon(Icons.notifications_active_rounded)),
-            ),
-          ]),
+          if (e == null) ...[
+            QtyField(controller: _qty, label: 'الكمية *'),
+            const SizedBox(height: 12),
+          ],
+          TextFormField(
+            controller: _minQty,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'تنبيه عند نزول الكمية إلى', prefixIcon: Icon(Icons.notifications_active_rounded)),
+          ),
           const SizedBox(height: 12),
           TextFormField(
             controller: _notes,

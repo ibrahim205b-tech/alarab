@@ -5,6 +5,7 @@ import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/repos/repairs_repo.dart';
 import '../invoices/receipt_actions.dart';
+import '../scan/scanner_page.dart';
 
 const _brands = ['Apple', 'Samsung', 'Xiaomi', 'Redmi', 'Oppo', 'Realme', 'Huawei', 'Honor', 'Infinix', 'Tecno', 'Vivo', 'Nokia'];
 const _issues = ['تبديل شاشة', 'تبديل بطارية', 'منفذ الشحن', 'لا يشتغل', 'سقط بالماء', 'سوفتوير / تفليش', 'مشكلة شبكة', 'الكاميرا', 'السماعة / المايك', 'زر الباور / الصوت', 'تبديل ظهر', 'فك قفل / حساب'];
@@ -157,7 +158,11 @@ class _RepairFormState extends State<_RepairForm> {
               child: TextFormField(
                 controller: _imei,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'IMEI', prefixIcon: Icon(Icons.qr_code_2_rounded)),
+                decoration: InputDecoration(
+                  labelText: 'IMEI',
+                  prefixIcon: const Icon(Icons.qr_code_2_rounded),
+                  suffixIcon: ScanButton(title: 'امسح IMEI', onCode: (v) => setState(() => _imei.text = v)),
+                ),
               ),
             ),
             const SizedBox(width: 10),

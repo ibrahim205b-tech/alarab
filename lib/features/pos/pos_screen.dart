@@ -9,6 +9,7 @@ import '../../data/models.dart';
 import '../../data/repos/products_repo.dart';
 import '../../data/repos/sales_repo.dart';
 import '../inventory/inventory_screen.dart';
+import '../scan/scanner_page.dart';
 import '../inventory/product_form.dart';
 import '../invoices/receipt_actions.dart';
 import 'cart.dart';
@@ -43,10 +44,15 @@ class _PosScreenState extends State<PosScreen> {
   /// دعم قارئ الباركود: الضغط على Enter بعد المسح يضيف المنتج مباشرة
   Future<void> _submitSearch(String v) async {
     final p = await ProductsRepo.byBarcode(v);
-    if (p != null && mounted) {
+    if (!mounted) return;
+    if (p != null) {
       _add(p);
       _search.clear();
       setState(() => _q = '');
+    } else if (v.trim().length >= 6 && RegExp(r'^[0-9A-Za-z-]+$').hasMatch(v.trim())) {
+      _search.text = v.trim();
+      setState(() => _q = v.trim());
+      toast(context, 'لا يوجد منتج بهذا الباركود: ${v.trim()}', error: true);
     }
   }
 
@@ -141,11 +147,14 @@ class _ProductsPane extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: 'ابحث عن منتج أو امسح الباركود...',
                     prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: IconButton(
-                      tooltip: 'منتج جديد',
-                      icon: const Icon(Icons.add_box_rounded),
-                      onPressed: () => showProductForm(context, categoryId: cat),
-                    ),
+                    suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                      ScanButton(onCode: onSubmit),
+                      IconButton(
+                        tooltip: 'منتج جديد',
+                        icon: const Icon(Icons.add_box_rounded),
+                        onPressed: () => showProductForm(context, categoryId: cat),
+                      ),
+                    ]),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -198,6 +207,7 @@ class _ProductsPane extends StatelessWidget {
                         product: p,
                         category: cats.where((x) => x.id == p.categoryId).firstOrNull,
                         onTap: () => onAdd(p),
+                        onQty: () => _pickQty(context, p),
                         badge: inCart == 0
                             ? null
                             : Padding(
@@ -217,6 +227,21 @@ class _ProductsPane extends StatelessWidget {
       },
     );
   }
+}
+
+Future<void> _pickQty(BuildContext context, Product p) async {
+  final cart = PosCart.instance;
+  final current = cart.qtyOf(p.id);
+  final n = await askQuantity(
+    context,
+    title: p.name,
+    subtitle: 'كم قطعة تريد بيعها؟ المتوفر بالمخزن: ${p.qty}',
+    initial: current == 0 ? 1 : current,
+    min: 0,
+    max: p.qty,
+  );
+  if (n == null) return;
+  if (!cart.putQty(p, n) && context.mounted) toast(context, 'المتوفر ${p.qty} فقط', error: true);
 }
 
 class _CartBar extends StatelessWidget {
@@ -345,15 +370,27 @@ class _CartRow extends StatelessWidget {
           Text(line.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
           GestureDetector(
             onTap: () => _editPrice(context),
-            child: Text('${money(line.price)} للقطعة ✎', style: TextStyle(fontSize: 12, color: context.cs.onSurfaceVariant)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('${money(line.price)} للقطعة ', style: TextStyle(fontSize: 12, color: context.cs.onSurfaceVariant)),
+              Icon(Icons.edit_rounded, size: 13, color: context.cs.onSurfaceVariant),
+            ]),
           ),
           Text(money(line.total), style: TextStyle(color: context.cs.primary, fontWeight: FontWeight.w800)),
         ]),
       ),
       _QtyButton(icon: Icons.remove_rounded, onTap: () => cart.setQty(line, line.qty - 1)),
-      SizedBox(
-        width: 36,
-        child: Text('${line.qty}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+      Pressable(
+        onTap: () => _pickQty(context, line.product),
+        child: Container(
+          constraints: const BoxConstraints(minWidth: 44),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: context.cs.primary.withValues(alpha: .5)),
+          ),
+          child: Text('${line.qty}', textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        ),
       ),
       _QtyButton(
         icon: Icons.add_rounded,

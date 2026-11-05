@@ -31,6 +31,22 @@ class PosCart extends ChangeNotifier {
     return true;
   }
 
+  /// وضع عدد محدد للمنتج في السلة (مثلاً 100 قطعة مرة واحدة)
+  bool putQty(Product p, int qty) {
+    if (qty > p.qty) return false;
+    final existing = lines.where((l) => l.product.id == p.id).firstOrNull;
+    if (qty <= 0) {
+      if (existing != null) lines.remove(existing);
+    } else if (existing != null) {
+      existing.qty = qty;
+    } else {
+      lines.add(CartLine(p, qty: qty));
+    }
+    if (discount > subtotal) discount = subtotal;
+    notifyListeners();
+    return true;
+  }
+
   bool setQty(CartLine l, int qty) {
     if (qty > l.product.qty) return false;
     if (qty <= 0) {

@@ -6,6 +6,8 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/repos/repairs_repo.dart';
+import '../../data/repos/settings_repo.dart';
+import '../../services/contact.dart';
 import '../../services/session.dart';
 import '../invoices/receipt_actions.dart';
 import 'repair_form.dart';
@@ -291,12 +293,19 @@ class _RepairDetails extends StatelessWidget {
                 icon: const Icon(Icons.note_add_rounded),
                 label: const Text('ملاحظة فني'),
               ),
-              if (r.customerPhone.isNotEmpty && r.status == RepairStatus.ready)
+              if (Contact.valid(r.customerPhone)) ...[
                 OutlinedButton.icon(
-                  onPressed: () => toast(context, 'اتصل بالزبون على ${r.customerPhone} لإبلاغه بجاهزية الجهاز', icon: Icons.phone_in_talk_rounded),
-                  icon: const Icon(Icons.phone_in_talk_rounded),
-                  label: const Text('إبلاغ الزبون'),
+                  style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF25D366)),
+                  onPressed: () => _whatsapp(context, r),
+                  icon: const Icon(Icons.chat_rounded),
+                  label: Text(r.status == RepairStatus.ready ? 'إبلاغ الزبون (واتساب)' : 'واتساب'),
                 ),
+                OutlinedButton.icon(
+                  onPressed: () => Contact.call(r.customerPhone),
+                  icon: const Icon(Icons.call_rounded),
+                  label: const Text('اتصال'),
+                ),
+              ],
               OutlinedButton.icon(
                 onPressed: () async {
                   if (!await AdminGate.require(context, reason: 'تعديل سجلات الصيانة للمدير فقط')) return;
@@ -325,6 +334,30 @@ class _RepairDetails extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _whatsapp(BuildContext context, Repair r) async {
+    final shop = SettingsRepo.instance.shopName;
+    final amount = r.estimatedCost - r.deposit;
+    final text = switch (r.status) {
+      RepairStatus.ready => 'مرحباً ${r.customerName} 👋\n'
+          'جهازك ${r.device} جاهز للاستلام ✅\n'
+          '${amount > 0 ? 'المبلغ المتبقي: ${money(amount)}\n' : ''}'
+          'رقم الوصل: ${r.code}\n'
+          '$shop',
+      RepairStatus.unfixable => 'مرحباً ${r.customerName}\n'
+          'نعتذر، تعذر إصلاح جهازك ${r.device}. يمكنك استلامه من المحل.\n'
+          'رقم الوصل: ${r.code}\n'
+          '$shop',
+      RepairStatus.delivered => 'شكراً لك ${r.customerName} 🌹\nتم تسليم جهازك ${r.device}.\n$shop',
+      _ => 'مرحباً ${r.customerName}\n'
+          'حالة جهازك ${r.device}: ${r.status.label}\n'
+          'رقم الوصل: ${r.code}\n'
+          '$shop',
+    };
+    if (!await Contact.whatsapp(r.customerPhone, text) && context.mounted) {
+      toast(context, 'تعذر فتح واتساب', error: true);
+    }
   }
 
   Future<void> _addNote(BuildContext context, Repair r) async {

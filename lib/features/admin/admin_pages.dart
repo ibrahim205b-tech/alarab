@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/brand.dart';
 import '../../core/format.dart';
+import '../../core/version.dart';
+import '../../data/repos/base.dart' as base;
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
@@ -705,5 +708,113 @@ class _ActivityPageState extends State<ActivityPage> {
         ),
       ]),
     );
+  }
+}
+
+// =====================================================================
+// تغيير الرمز السري للمستخدم الحالي
+// =====================================================================
+
+Future<void> changeOwnPin(BuildContext context) async {
+  final user = Session.instance.user;
+  if (user == null) return;
+  final old = TextEditingController();
+  final pin = TextEditingController();
+  final pin2 = TextEditingController();
+  final form = GlobalKey<FormState>();
+  InputDecoration deco(String l) => InputDecoration(labelText: l, counterText: '', prefixIcon: const Icon(Icons.lock_rounded));
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (d) => AlertDialog(
+      title: const Text('تغيير الرمز السري'),
+      content: SizedBox(
+        width: 380,
+        child: Form(
+          key: form,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextFormField(controller: old, obscureText: true, maxLength: 4, keyboardType: TextInputType.number, decoration: deco('الرمز الحالي')),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: pin,
+              obscureText: true,
+              maxLength: 4,
+              keyboardType: TextInputType.number,
+              decoration: deco('الرمز الجديد (4 أرقام)'),
+              validator: (v) => RegExp(r'^\d{4}$').hasMatch(v ?? '') ? null : '4 أرقام',
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: pin2,
+              obscureText: true,
+              maxLength: 4,
+              keyboardType: TextInputType.number,
+              decoration: deco('تأكيد الرمز الجديد'),
+              validator: (v) => v == pin.text ? null : 'غير متطابق',
+            ),
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('إلغاء')),
+        FilledButton(onPressed: () => Navigator.pop(d, form.currentState!.validate()), child: const Text('حفظ')),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  if (!await UsersRepo.verify(user.id, old.text)) {
+    if (context.mounted) toast(context, 'الرمز الحالي غير صحيح', error: true);
+    return;
+  }
+  if (context.mounted) await guard(context, () => UsersRepo.update(user.id, pin: pin.text), success: 'تم تغيير الرمز السري');
+}
+
+// =====================================================================
+// حول البرنامج
+// =====================================================================
+
+class AboutPage extends StatelessWidget {
+  const AboutPage({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return _Page(title: 'حول البرنامج', children: [
+      const SizedBox(height: 12),
+      const Center(child: BrandMark(size: 96)),
+      const SizedBox(height: 16),
+      Center(child: Text(_s.shopName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800))),
+      const SizedBox(height: 4),
+      Center(child: Text('نظام مبيعات متكامل لمحلات الهواتف', style: TextStyle(color: context.cs.onSurfaceVariant))),
+      const SizedBox(height: 6),
+      Center(child: Pill('الإصدار $appVersion', color: AppColors.gold, icon: Icons.verified_rounded)),
+      const SizedBox(height: 24),
+      AppCard(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const SectionTitle('التطوير'),
+          InfoRow('تطوير وبرمجة', developerName, icon: Icons.code_rounded, bold: true),
+          InfoRow('المنصة', 'أندرويد — موبايل وتابلت', icon: Icons.android_rounded),
+          InfoRow('قاعدة البيانات', 'محلية على الجهاز (تعمل بدون إنترنت)', icon: Icons.storage_rounded),
+        ]),
+      ),
+      const SizedBox(height: 14),
+      DataView<List<int>>(
+        load: () async {
+          final r = await Future.wait([
+            for (final t in ['products', 'invoices', 'line_sales', 'repairs', 'debts', 'users'])
+              base.db.rawQuery('SELECT COUNT(*) c FROM $t').then((x) => (x.first['c'] as num).toInt()),
+          ]);
+          return r;
+        },
+        builder: (context, c) => AppCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const SectionTitle('البيانات المسجلة'),
+            InfoRow('المنتجات', '${c[0]}', icon: Icons.inventory_2_rounded),
+            InfoRow('الفواتير', '${c[1]}', icon: Icons.receipt_long_rounded),
+            InfoRow('الخطوط المباعة', '${c[2]}', icon: Icons.sim_card_rounded),
+            InfoRow('أجهزة الصيانة', '${c[3]}', icon: Icons.build_circle_rounded),
+            InfoRow('الديون', '${c[4]}', icon: Icons.menu_book_rounded),
+            InfoRow('المستخدمون', '${c[5]}', icon: Icons.group_rounded),
+          ]),
+        ),
+      ),
+    ]);
   }
 }

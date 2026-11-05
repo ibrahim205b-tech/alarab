@@ -7,6 +7,7 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/repos/settings_repo.dart';
 import '../../services/session.dart';
+import '../admin/admin_pages.dart';
 import '../admin/admin_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../debts/debt_sheet.dart';
@@ -252,6 +253,7 @@ class _TopBar extends StatelessWidget {
           onSelected: (v) async {
             if (v == 'theme') ThemeController.instance.toggle();
             if (v == 'logout') Session.instance.logout();
+            if (v == 'pin' && context.mounted) changeOwnPin(context);
           },
           itemBuilder: (c) => [
             PopupMenuItem(
@@ -273,6 +275,10 @@ class _TopBar extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text(c.isDark ? 'الوضع الفاتح' : 'الوضع الداكن'),
               ]),
+            ),
+            const PopupMenuItem(
+              value: 'pin',
+              child: Row(children: [Icon(Icons.password_rounded), SizedBox(width: 10), Text('تغيير الرمز السري')]),
             ),
             const PopupMenuItem(
               value: 'logout',

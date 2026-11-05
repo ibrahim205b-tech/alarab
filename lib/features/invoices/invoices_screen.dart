@@ -182,6 +182,13 @@ class _InvoiceDetails extends StatelessWidget {
                     ]),
                   ),
                   Text(money(it.total), style: const TextStyle(fontWeight: FontWeight.w800)),
+                  if (inv.type == InvoiceType.sale && !inv.isVoid)
+                    IconButton(
+                      tooltip: 'إرجاع',
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(admin ? Icons.assignment_return_rounded : Icons.lock_rounded, size: 20, color: AppColors.warning),
+                      onPressed: () => _returnItem(context, inv, it),
+                    ),
                 ]),
               ),
             const Divider(height: 24),
@@ -226,6 +233,35 @@ class _InvoiceDetails extends StatelessWidget {
         );
       },
     );
+  }
+
+  Future<void> _returnItem(BuildContext context, Invoice inv, InvoiceItem it) async {
+    if (!await AdminGate.require(context, reason: 'إرجاع المواد للمدير فقط')) return;
+    if (!context.mounted) return;
+    final qty = it.qty == 1
+        ? 1
+        : await askQuantity(context, title: 'إرجاع ${it.name}', subtitle: 'كم قطعة أرجعها الزبون؟ (المباع ${it.qty})', max: it.qty);
+    if (qty == null || !context.mounted) return;
+    final reason = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        icon: const Icon(Icons.assignment_return_rounded, color: AppColors.warning, size: 40),
+        title: Text('إرجاع ${it.name} × $qty'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text('تُرجع القطع إلى المخزن ويُخصم ${money(it.price * qty)} من الفاتورة'),
+          const SizedBox(height: 12),
+          TextField(controller: reason, decoration: const InputDecoration(labelText: 'سبب الإرجاع (اختياري)')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('تراجع')),
+          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('تأكيد الإرجاع')),
+        ],
+      ),
+    );
+    if (ok == true && context.mounted) {
+      await guard(context, () => SalesRepo.returnItem(inv, it, qty, reason: reason.text.trim()), success: 'تم الإرجاع وإعادة القطع للمخزن');
+    }
   }
 
   Future<void> _void(BuildContext context, Invoice inv) async {

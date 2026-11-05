@@ -944,3 +944,145 @@ class InfoRow extends StatelessWidget {
     );
   }
 }
+
+// =====================================================================
+// إدخال العدد
+// =====================================================================
+
+/// حقل عدد مع أزرار − / + وأزرار إضافة سريعة (+10، +50، +100)
+class QtyField extends StatefulWidget {
+  final TextEditingController controller;
+  final String label;
+  final int min;
+  final int? max;
+  final bool autofocus;
+  final List<int> quick;
+  final ValueChanged<int>? onChanged;
+  const QtyField({
+    super.key,
+    required this.controller,
+    this.label = 'العدد',
+    this.min = 0,
+    this.max,
+    this.autofocus = false,
+    this.quick = const [5, 10, 50, 100],
+    this.onChanged,
+  });
+
+  @override
+  State<QtyField> createState() => _QtyFieldState();
+}
+
+class _QtyFieldState extends State<QtyField> {
+  int get _v => int.tryParse(widget.controller.text) ?? 0;
+
+  void _set(int v) {
+    var n = v < widget.min ? widget.min : v;
+    if (widget.max != null && n > widget.max!) n = widget.max!;
+    widget.controller.text = '$n';
+    widget.controller.selection = TextSelection.collapsed(offset: widget.controller.text.length);
+    HapticFeedback.selectionClick();
+    widget.onChanged?.call(n);
+    setState(() {});
+  }
+
+  Widget _btn(IconData icon, VoidCallback onTap) => Pressable(
+        onTap: onTap,
+        child: Container(
+          width: 52,
+          height: 52,
+          decoration: BoxDecoration(
+            color: context.cs.primary.withValues(alpha: .15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: context.cs.primary.withValues(alpha: .4)),
+          ),
+          child: Icon(icon, color: context.cs.primary),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(children: [
+        _btn(Icons.add_rounded, () => _set(_v + 1)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: TextFormField(
+            controller: widget.controller,
+            autofocus: widget.autofocus,
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            decoration: InputDecoration(
+              labelText: widget.label,
+              helperText: widget.max != null ? 'المتوفر ${widget.max}' : null,
+            ),
+            validator: (v) {
+              final n = int.tryParse(v ?? '');
+              if (n == null || n < widget.min) return 'أدخل عدداً صحيحاً';
+              if (widget.max != null && n > widget.max!) return 'المتوفر ${widget.max} فقط';
+              return null;
+            },
+            onChanged: (v) {
+              widget.onChanged?.call(int.tryParse(v) ?? 0);
+              setState(() {});
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        _btn(Icons.remove_rounded, () => _set(_v - 1)),
+      ]),
+      if (widget.quick.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final q in widget.quick)
+            ActionChip(
+              avatar: const Icon(Icons.add_rounded, size: 16),
+              label: Text('$q'),
+              onPressed: () => _set(_v + q),
+            ),
+          ActionChip(
+            avatar: const Icon(Icons.restart_alt_rounded, size: 16),
+            label: const Text('تصفير'),
+            onPressed: () => _set(widget.min),
+          ),
+        ]),
+      ],
+    ]);
+  }
+}
+
+/// نافذة إدخال عدد (مثلاً بيع 100 قطعة مرة واحدة)
+Future<int?> askQuantity(BuildContext context, {required String title, int initial = 1, int min = 1, int? max, String? subtitle}) {
+  final c = TextEditingController(text: '$initial');
+  final form = GlobalKey<FormState>();
+  return showDialog<int>(
+    context: context,
+    builder: (d) => AlertDialog(
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: form,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (subtitle != null) ...[
+              Text(subtitle, style: TextStyle(color: d.cs.onSurfaceVariant)),
+              const SizedBox(height: 12),
+            ],
+            QtyField(controller: c, min: min, max: max, autofocus: true),
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(d), child: const Text('إلغاء')),
+        FilledButton(
+          onPressed: () {
+            if (form.currentState!.validate()) Navigator.pop(d, int.parse(c.text));
+          },
+          child: const Text('تأكيد'),
+        ),
+      ],
+    ),
+  );
+}

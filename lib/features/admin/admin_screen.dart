@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/format.dart';
+import '../../core/version.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/repos/reports_repo.dart';
@@ -46,6 +47,7 @@ class AdminScreen extends StatelessWidget {
           ('النسخ الاحتياطي', 'حفظ واستعادة كل البيانات', Icons.backup_rounded, AppColors.teal, () => const BackupPage()),
           ('أقسام المخزن', 'إضافة أقسام جديدة للمنتجات', Icons.category_rounded, const Color(0xFFEC4899), () => const CategoriesPage()),
           ('سجل العمليات', 'من أضاف، باع، عدّل أو حذف', Icons.history_rounded, const Color(0xFF64748B), () => const ActivityPage()),
+          ('حول البرنامج', 'الإصدار $appVersion • $developerName', Icons.info_rounded, AppColors.gold, () => const AboutPage()),
         ];
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),

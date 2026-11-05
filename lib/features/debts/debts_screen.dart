@@ -6,6 +6,8 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../data/models.dart';
 import '../../data/repos/debts_repo.dart';
+import '../../data/repos/settings_repo.dart';
+import '../../services/contact.dart';
 import '../../services/session.dart';
 import '../invoices/receipt_actions.dart';
 import 'debt_sheet.dart';
@@ -176,6 +178,35 @@ class _DebtDetails extends StatelessWidget {
                 ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             InfoRow('الهاتف', debt.customerPhone, icon: Icons.phone_rounded),
+            if (Contact.valid(debt.customerPhone))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(children: [
+                  if (!debt.isClosed)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF25D366)),
+                        onPressed: () => Contact.whatsapp(
+                          debt.customerPhone,
+                          'مرحباً ${debt.customerName} 🌹\n'
+                          'نود تذكيرك بالمبلغ المتبقي: ${money(debt.remaining)}\n'
+                          '(${debt.debtType} بتاريخ ${dateMs(debt.createdAt)})\n'
+                          '${SettingsRepo.instance.shopName}',
+                        ),
+                        icon: const Icon(Icons.chat_rounded),
+                        label: const Text('تذكير واتساب'),
+                      ),
+                    ),
+                  if (!debt.isClosed) const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => Contact.call(debt.customerPhone),
+                      icon: const Icon(Icons.call_rounded),
+                      label: const Text('اتصال'),
+                    ),
+                  ),
+                ]),
+              ),
             InfoRow('النوع', debt.debtType, icon: Icons.category_rounded),
             InfoRow('المبلغ الكلي', money(debt.amount), icon: Icons.request_quote_rounded),
             InfoRow('المدفوع', money(debt.paid), icon: Icons.check_circle_outline_rounded, color: AppColors.success),

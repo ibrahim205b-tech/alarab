@@ -55,6 +55,14 @@ class ProductsRepo {
 
   /// إضافة منتج جديد (مسموح للموظف) مع تسجيل الحركة
   static Future<int> create(Product p, int qty) async {
+    if (p.imei.trim().isNotEmpty) {
+      final r = await db.query('products', columns: ['name'], where: 'active = 1 AND imei = ?', whereArgs: [p.imei.trim()], limit: 1);
+      if (r.isNotEmpty) throw Exception('رقم IMEI مسجل مسبقاً للمنتج: ${r.first['name']}');
+    }
+    if (p.barcode.trim().isNotEmpty) {
+      final r = await db.query('products', columns: ['name'], where: 'active = 1 AND barcode = ?', whereArgs: [p.barcode.trim()], limit: 1);
+      if (r.isNotEmpty) throw Exception('الباركود مسجل مسبقاً للمنتج "${r.first['name']}" — استخدم "إضافة كمية" بدل منتج جديد');
+    }
     final id = await db.transaction((txn) async {
       final now = nowMs();
       final id = await txn.insert('products', {

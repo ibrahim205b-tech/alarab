@@ -9,6 +9,7 @@ import '../../data/repos/products_repo.dart';
 import '../../services/session.dart';
 import '../pos/cart.dart';
 import '../shell/shell.dart';
+import '../scan/scanner_page.dart';
 import 'product_form.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -57,7 +58,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ]),
                   ),
                   const SizedBox(height: 12),
-                  SearchField(hint: 'بحث بالاسم، الموديل، IMEI أو الباركود...', onChanged: (v) => setState(() => _q = v)),
+                  SearchField(
+                    hint: 'بحث بالاسم، الموديل، IMEI أو الباركود...',
+                    onChanged: (v) => setState(() => _q = v),
+                    trailing: ScanButton(onCode: (code) async {
+                      final p = await ProductsRepo.byBarcode(code);
+                      if (!context.mounted) return;
+                      if (p != null) {
+                        await showProductDetails(context, p.id);
+                      } else {
+                        toast(context, 'منتج جديد — أكمل بياناته', icon: Icons.qr_code_rounded);
+                        await showProductForm(context, barcode: code, categoryId: _cat);
+                      }
+                    }),
+                  ),
                   const SizedBox(height: 10),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -146,7 +160,9 @@ class ProductCard extends StatelessWidget {
   final Category? category;
   final VoidCallback onTap;
   final Widget? badge;
-  const ProductCard({super.key, required this.product, this.category, required this.onTap, this.badge});
+  /// زر تحديد العدد (يظهر في نقطة البيع)
+  final VoidCallback? onQty;
+  const ProductCard({super.key, required this.product, this.category, required this.onTap, this.badge, this.onQty});
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +194,26 @@ class ProductCard extends StatelessWidget {
             ),
           ),
           if (p.condition == 'used') const Pill('مستعمل', color: AppColors.info),
+          if (onQty != null)
+            Tooltip(
+              message: 'تحديد العدد',
+              child: Pressable(
+                onTap: onQty,
+                child: Container(
+                  margin: const EdgeInsetsDirectional.only(start: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: context.cs.primary.withValues(alpha: .15),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: context.cs.primary.withValues(alpha: .45)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.add_rounded, size: 16, color: context.cs.primary),
+                    Text('عدد', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: context.cs.primary)),
+                  ]),
+                ),
+              ),
+            ),
         ]),
       ]),
     );
@@ -289,30 +325,46 @@ class _ProductDetails extends StatelessWidget {
   Future<void> _restock(BuildContext context, Product p) async {
     final qty = TextEditingController(text: '1');
     final note = TextEditingController();
+    final cost = TextEditingController(text: p.cost > 0 ? numFmt(p.cost) : '');
+    final form = GlobalKey<FormState>();
     final ok = await showDialog<bool>(
       context: context,
       builder: (d) => AlertDialog(
         title: Text('إضافة كمية — ${p.name}'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: qty,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'الكمية المضافة', prefixIcon: Icon(Icons.add_rounded)),
+        content: SizedBox(
+          width: 420,
+          child: Form(
+            key: form,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text('الكمية الحالية: ${p.qty}', style: TextStyle(color: d.cs.onSurfaceVariant)),
+                const SizedBox(height: 12),
+                QtyField(controller: qty, label: 'الكمية المضافة', min: 1, autofocus: true),
+                const SizedBox(height: 12),
+                if (Session.instance.isAdmin) ...[
+                  MoneyField(controller: cost, label: 'سعر الشراء الجديد (اختياري)'),
+                  const SizedBox(height: 12),
+                ],
+                TextField(controller: note, decoration: const InputDecoration(labelText: 'ملاحظة (المورد مثلاً)')),
+              ]),
+            ),
           ),
-          const SizedBox(height: 12),
-          TextField(controller: note, decoration: const InputDecoration(labelText: 'ملاحظة (المورد مثلاً)')),
-        ]),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('إضافة')),
+          FilledButton(onPressed: () => Navigator.pop(d, form.currentState!.validate()), child: const Text('إضافة')),
         ],
       ),
     );
     if (ok != true) return;
     final n = int.tryParse(qty.text) ?? 0;
     if (n <= 0) return;
-    if (context.mounted) await guard(context, () => ProductsRepo.restock(p.id, n, note: note.text), success: 'تمت إضافة $n قطعة');
+    final newCost = parseMoney(cost.text);
+    if (context.mounted) {
+      await guard(context,
+          () => ProductsRepo.restock(p.id, n, note: note.text, newCost: Session.instance.isAdmin && newCost != p.cost ? newCost : null),
+          success: 'تمت إضافة $n قطعة');
+    }
   }
 
   Future<void> _adjust(BuildContext context, Product p) async {
