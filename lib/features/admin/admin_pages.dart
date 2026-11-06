@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../core/brand.dart';
 import '../../core/format.dart';
 import '../../core/version.dart';
+import '../../services/contact.dart';
 import '../../services/license.dart';
 import '../../core/license_crypto.dart';
 import '../../data/repos/base.dart' as base;
@@ -834,7 +835,6 @@ class SubscriptionPage extends StatefulWidget {
 
 class _SubscriptionPageState extends State<SubscriptionPage> {
   final _code = TextEditingController();
-  late final _contact = TextEditingController(text: _s.get('provider_contact', defaultProviderContact));
   bool _busy = false;
 
   LicenseService get lic => LicenseService.instance;
@@ -913,25 +913,18 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           ),
           const SizedBox(height: 14),
           AppCard(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const SectionTitle('رقم المزوّد', subtitle: 'يظهر في شاشة التفعيل ليتواصل معك صاحب المحل'),
-              Row(children: [
-                Expanded(
-                  child: TextField(
-                    controller: _contact,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(labelText: 'رقم الهاتف / واتساب', prefixIcon: Icon(Icons.call_rounded)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                FilledButton(
-                  onPressed: () async {
-                    await _s.set('provider_contact', _contact.text.trim());
-                    if (context.mounted) toast(context, 'تم الحفظ');
-                  },
-                  child: const Text('حفظ'),
-                ),
-              ]),
+            onTap: () => Contact.whatsapp(defaultProviderContact,
+                'السلام عليكم، أريد تجديد الاشتراك.\nرمز الجهاز: ${lic.deviceIdShown}'),
+            child: Row(children: [
+              const IconBadge(icon: Icons.support_agent_rounded, color: Color(0xFF25D366), size: 48),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('للتجديد تواصل مع المطوّر', style: TextStyle(fontWeight: FontWeight.w800)),
+                  Text(defaultProviderContact, textDirection: TextDirection.ltr, style: TextStyle(color: context.cs.primary, fontWeight: FontWeight.w800, fontSize: 16)),
+                ]),
+              ),
+              const Icon(Icons.chat_rounded, color: Color(0xFF25D366)),
             ]),
           ),
         ]);

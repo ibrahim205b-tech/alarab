@@ -17,8 +17,8 @@ class SetupScreen extends StatefulWidget {
 
 class _SetupScreenState extends State<SetupScreen> {
   final _form = GlobalKey<FormState>();
-  final _name = TextEditingController(text: 'علي العراب');
-  final _shop = TextEditingController(text: SettingsRepo.instance.shopName);
+  final _name = TextEditingController();
+  final _shop = TextEditingController();
   final _phone = TextEditingController();
   final _pin = TextEditingController();
   final _pin2 = TextEditingController();
@@ -55,12 +55,13 @@ class _SetupScreenState extends State<SetupScreen> {
                       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                         const Text('أهلاً بك 👋', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
                         const SizedBox(height: 4),
-                        Text('لنبدأ بإعداد حساب المدير. المدير وحده يستطيع التعديل والحذف.',
+                        Text('أدخل اسم محلك واسمك لتبدأ. المدير وحده يستطيع التعديل والحذف.',
                             style: TextStyle(color: context.cs.onSurfaceVariant)),
                         const SizedBox(height: 20),
                         TextFormField(
                           controller: _shop,
-                          decoration: const InputDecoration(labelText: 'اسم المحل', prefixIcon: Icon(Icons.storefront_rounded)),
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(labelText: 'اسم المحل', hintText: 'مثال: محل النور للموبايلات', prefixIcon: Icon(Icons.storefront_rounded)),
                           validator: (v) => (v ?? '').trim().isEmpty ? 'مطلوب' : null,
                         ),
                         const SizedBox(height: 12),
@@ -72,7 +73,7 @@ class _SetupScreenState extends State<SetupScreen> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _name,
-                          decoration: const InputDecoration(labelText: 'اسم المدير', prefixIcon: Icon(Icons.person_rounded)),
+                          decoration: const InputDecoration(labelText: 'اسمك (المدير)', hintText: 'مثال: أحمد', prefixIcon: Icon(Icons.person_rounded)),
                           validator: (v) => (v ?? '').trim().isEmpty ? 'مطلوب' : null,
                         ),
                         const SizedBox(height: 12),

@@ -2,7 +2,6 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import '../core/format.dart';
-import '../core/version.dart';
 import 'protector_seed.dart';
 
 /// قاعدة البيانات المحلية — كل البيانات تُحفظ على الجهاز وتعمل بدون إنترنت.
@@ -310,7 +309,7 @@ class AppDb {
     await seedProtectors(db);
 
     const settings = {
-      'shop_name': 'مبيعات علي العراب',
+      'shop_name': '',
       'shop_phone': '',
       'shop_address': 'العراق',
       'receipt_footer': 'شكراً لتعاملكم معنا',
@@ -319,7 +318,6 @@ class AppDb {
       'counter_line': '0',
       'counter_repair': '0',
       'counter_debt_pay': '0',
-      'provider_contact': defaultProviderContact,
       'printer_mode': 'none',
       'paper_width': '58',
       'auto_print': '0',

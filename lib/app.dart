@@ -33,7 +33,7 @@ class AlarabApp extends StatelessWidget {
     return ListenableBuilder(
       listenable: ThemeController.instance,
       builder: (context, _) => MaterialApp(
-        title: 'مبيعات علي العراب',
+        title: 'نظام المبيعات',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),

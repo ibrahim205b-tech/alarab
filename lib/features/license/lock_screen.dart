@@ -7,7 +7,6 @@ import '../../core/license_crypto.dart';
 import '../../core/theme.dart';
 import '../../core/version.dart';
 import '../../core/widgets.dart';
-import '../../data/repos/settings_repo.dart';
 import '../../services/contact.dart';
 import '../../services/license.dart';
 
@@ -47,7 +46,7 @@ class _LockScreenState extends State<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final expired = lic.status == LicenseStatus.expired;
-    final contact = SettingsRepo.instance.get('provider_contact', defaultProviderContact);
+    const contact = defaultProviderContact;
     return Scaffold(
       body: AmbientBackground(
         child: SafeArea(

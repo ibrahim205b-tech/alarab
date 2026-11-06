@@ -36,5 +36,8 @@ class SettingsRepo {
     changed();
   }
 
-  String get shopName => get('shop_name', 'مبيعات علي العراب');
+  String get shopName {
+    final v = get('shop_name').trim();
+    return v.isEmpty ? 'نظام المبيعات' : v;
+  }
 }

@@ -97,9 +97,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.1.${{ github.run_number }}
-          name: مبيعات علي العراب v1.1.${{ github.run_number }}
+          name: نظام المبيعات v1.1.${{ github.run_number }}
           body: |
-            نسخة جديدة من تطبيق **مبيعات علي العراب**.
+            نسخة جديدة من البرنامج.
             حمّل ملف APK من الأسفل وثبّته على الجهاز (تابلت أو موبايل).
           files: out/*.apk
           make_latest: true
