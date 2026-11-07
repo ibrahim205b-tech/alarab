@@ -42,7 +42,7 @@ Future<void> _loadFonts() async {
 }
 
 Future<void> _seedDemo() async {
-  final admin = await UsersRepo.create('علي العراب', '1234', 'admin');
+  final admin = await UsersRepo.create('المدير', '1234', 'admin');
   await UsersRepo.create('حيدر', '1111', 'employee');
   Session.instance.login(admin);
   final cats = await ProductsRepo.categories();
@@ -170,6 +170,25 @@ void main() {
     });
   }
 
+  testWidgets('trial banner on dashboard', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    SharedPreferences.setMockInitialValues({}); // أول تشغيل → يوم مجاني
+    await tester.runAsync(() async {
+      await LicenseService.instance.init();
+      final a = await UsersRepo.create('المدير', '1234', 'admin');
+      Session.instance.login(a);
+    });
+    await tester.pumpWidget(const AlarabApp());
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 60)));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/phone_trial.png'));
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('lock screen renders when not activated', (tester) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 2.75;
@@ -194,7 +213,7 @@ void main() {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 2.75;
     addTearDown(tester.view.reset);
-    await tester.runAsync(() => UsersRepo.create('علي العراب', '1234', 'admin'));
+    await tester.runAsync(() => UsersRepo.create('المدير', '1234', 'admin'));
     await tester.pumpWidget(const AlarabApp());
     for (var i = 0; i < 6; i++) {
       await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 60)));

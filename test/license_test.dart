@@ -22,8 +22,38 @@ void main() {
     expect(generateCode(device, days, secret: 'other'), isNot(code));
   });
 
-  test('activation, expiry and clock-rollback guard', () async {
+  test('first run grants a free trial day, then locks', () async {
     SharedPreferences.setMockInitialValues({});
+    final lic = LicenseService.instance;
+    await lic.init();
+    // يوم مجاني تلقائي
+    expect(lic.unlocked, true);
+    expect(lic.isTrial, true);
+    expect(lic.hoursLeft, inInclusiveRange(1, 24));
+
+    // كود مدفوع ينهي وضع التجربة
+    final code = generateCode(lic.deviceId, DateTime.now().add(const Duration(days: 180)).millisecondsSinceEpoch ~/ 86400000);
+    expect(await lic.activate(code), true);
+    expect(lic.isTrial, false);
+    expect(lic.daysLeft, greaterThan(175));
+  });
+
+  test('expired trial shows trialEnded and does not re-grant', () async {
+    SharedPreferences.setMockInitialValues({
+      'lic_device_id': '7K2M9X4QAB12',
+      'lic_trial_used': true,
+      'lic_is_trial': true,
+      'lic_expiry_ms': DateTime.now().subtract(const Duration(hours: 2)).millisecondsSinceEpoch,
+    });
+    final lic = LicenseService.instance;
+    await lic.init();
+    expect(lic.unlocked, false);
+    expect(lic.status, LicenseStatus.expired);
+    expect(lic.trialEnded, true);
+  });
+
+  test('activation, expiry and clock-rollback guard', () async {
+    SharedPreferences.setMockInitialValues({'lic_trial_used': true}); // تخطّي التجربة
     final lic = LicenseService.instance;
     await lic.init();
     expect(lic.status, LicenseStatus.notActivated);

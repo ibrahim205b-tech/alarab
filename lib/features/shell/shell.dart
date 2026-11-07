@@ -428,6 +428,10 @@ class _LicenseBanner extends StatelessWidget {
       builder: (context, _) {
         final lic = LicenseService.instance;
         if (!lic.expiringSoon) return const SizedBox.shrink();
+        final trial = lic.isTrial;
+        final msg = trial
+            ? 'نسخة تجريبية مجانية — تنتهي خلال ${lic.hoursLeft} ساعة. للاشتراك تواصل مع المطوّر'
+            : 'ينتهي الاشتراك بعد ${lic.daysLeft} يوم — راجع المزوّد للتجديد';
         return Container(
           margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -440,13 +444,12 @@ class _LicenseBanner extends StatelessWidget {
             const Icon(Icons.timer_rounded, color: AppColors.warning, size: 20),
             const SizedBox(width: 8),
             Expanded(
-              child: Text('ينتهي الاشتراك بعد ${lic.daysLeft} يوم — راجع المزوّد للتجديد',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
+              child: Text(msg, style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
             if (Session.instance.isAdmin)
               TextButton(
                 onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SubscriptionPage())),
-                child: const Text('تجديد'),
+                child: Text(trial ? 'اشترك' : 'تجديد'),
               ),
           ]),
         );

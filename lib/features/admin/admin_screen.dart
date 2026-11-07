@@ -13,12 +13,16 @@ import '../shift/shift_reset.dart';
 import 'admin_pages.dart';
 import 'catalog_page.dart';
 
-String _subLabel() => switch (LicenseService.instance.status) {
-      LicenseStatus.active => 'مفعّل • باقي ${LicenseService.instance.daysLeft} يوم',
-      LicenseStatus.expired => 'انتهى — بحاجة تجديد',
-      LicenseStatus.notActivated => 'غير مفعّل',
-    };
-Color _subColor() => switch (LicenseService.instance.status) {
+String _subLabel() => LicenseService.instance.isTrial
+    ? 'تجريبي مجاني • باقي ${LicenseService.instance.hoursLeft} ساعة'
+    : switch (LicenseService.instance.status) {
+        LicenseStatus.active => 'مفعّل • باقي ${LicenseService.instance.daysLeft} يوم',
+        LicenseStatus.expired => 'انتهى — بحاجة تجديد',
+        LicenseStatus.notActivated => 'غير مفعّل',
+      };
+Color _subColor() => LicenseService.instance.isTrial
+    ? AppColors.gold
+    : switch (LicenseService.instance.status) {
       LicenseStatus.active => AppColors.success,
       LicenseStatus.expired => AppColors.danger,
       LicenseStatus.notActivated => AppColors.warning,

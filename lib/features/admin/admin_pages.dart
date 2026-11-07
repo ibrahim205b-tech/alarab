@@ -857,11 +857,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     return ListenableBuilder(
       listenable: lic,
       builder: (context, _) {
-        final (label, color) = switch (lic.status) {
-          LicenseStatus.active => ('مفعّل', AppColors.success),
-          LicenseStatus.expired => ('منتهٍ', AppColors.danger),
-          LicenseStatus.notActivated => ('غير مفعّل', AppColors.warning),
-        };
+        final (label, color) = lic.isTrial
+            ? ('تجريبي مجاني', AppColors.gold)
+            : switch (lic.status) {
+                LicenseStatus.active => ('مفعّل', AppColors.success),
+                LicenseStatus.expired => ('منتهٍ', AppColors.danger),
+                LicenseStatus.notActivated => ('غير مفعّل', AppColors.warning),
+              };
         return _Page(title: 'الاشتراك', children: [
           AppCard(
             borderColor: color.withValues(alpha: .4),
@@ -875,7 +877,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 15)),
                   ]),
                 ),
-                if (lic.status == LicenseStatus.active) Pill('باقي ${lic.daysLeft} يوم', color: color),
+                if (lic.status == LicenseStatus.active)
+                  Pill(lic.isTrial ? 'باقي ${lic.hoursLeft} ساعة' : 'باقي ${lic.daysLeft} يوم', color: color),
               ]),
               const Divider(height: 24),
               InfoRow('رمز الجهاز', lic.deviceIdShown, icon: Icons.fingerprint_rounded, bold: true),

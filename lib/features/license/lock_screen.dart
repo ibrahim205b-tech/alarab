@@ -46,6 +46,7 @@ class _LockScreenState extends State<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final expired = lic.status == LicenseStatus.expired;
+    final trialEnded = lic.trialEnded;
     const contact = defaultProviderContact;
     return Scaffold(
       body: AmbientBackground(
@@ -69,7 +70,7 @@ class _LockScreenState extends State<LockScreen> {
                       Icon(expired ? Icons.lock_clock_rounded : Icons.lock_rounded,
                           color: expired ? AppColors.danger : AppColors.warning, size: 20),
                       const SizedBox(width: 8),
-                      Text(expired ? 'انتهت فترة الاشتراك' : 'البرنامج غير مفعّل',
+                      Text(trialEnded ? 'انتهت النسخة التجريبية' : expired ? 'انتهت فترة الاشتراك' : 'البرنامج غير مفعّل',
                           style: TextStyle(fontWeight: FontWeight.w800, color: expired ? AppColors.danger : AppColors.warning)),
                     ]),
                   ),
@@ -78,9 +79,11 @@ class _LockScreenState extends State<LockScreen> {
                     padding: const EdgeInsets.all(20),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                       Text(
-                        expired
-                            ? 'انتهت مدة الاشتراك. بياناتك محفوظة بالكامل ولم تُحذف. للتجديد والمتابعة أدخل كود التفعيل.'
-                            : 'لتشغيل البرنامج أدخل كود التفعيل. أرسل رمز الجهاز أدناه إلى المزوّد ليعطيك الكود.',
+                        trialEnded
+                            ? 'انتهى اليوم المجاني التجريبي. بياناتك محفوظة بالكامل ولم تُحذف. للاشتراك والمتابعة أدخل كود التفعيل.'
+                            : expired
+                                ? 'انتهت مدة الاشتراك. بياناتك محفوظة بالكامل ولم تُحذف. للتجديد والمتابعة أدخل كود التفعيل.'
+                                : 'لتشغيل البرنامج أدخل كود التفعيل. أرسل رمز الجهاز أدناه إلى المزوّد ليعطيك الكود.',
                         style: TextStyle(color: context.cs.onSurfaceVariant, height: 1.5),
                       ),
                       const SizedBox(height: 18),
