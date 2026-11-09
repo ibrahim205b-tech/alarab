@@ -63,7 +63,7 @@
     </div>
     <details>
       <summary>المفتاح السري (متقدّم — لا تغيّره إلا إذا غيّرته في البرنامج)</summary>
-      <input id="secret" type="text" value="a95296fdacc0eddc8568ff02c43cd097aed36e010645e830051b3f3cea16ac8f">
+      <input id="secret" type="text" placeholder="يُحفظ تلقائياً عند أول فتح بالرابط" autocomplete="off" spellcheck="false">
     </details>
     <button class="go" onclick="gen()">توليد الكود</button>
     <div class="err" id="err"></div>
@@ -83,6 +83,16 @@
 
 <script>
 const ALPH = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+// المفتاح لا يُخزَّن في هذا الملف. يُحفظ في المتصفح مرة واحدة عند فتح الرابط الذي يحتويه.
+(function(){
+  try {
+    const m = (location.hash || '').match(/key=([0-9a-fA-F]{32,})/);
+    if (m) { localStorage.setItem('alarab_key', m[1]); history.replaceState(null, '', location.pathname + location.search); }
+    const k = localStorage.getItem('alarab_key');
+    if (k) document.getElementById('secret').value = k;
+    else { const d = document.querySelector('details'); if (d) d.open = true; }
+  } catch(e){}
+})();
 let days = 180;
 
 document.querySelectorAll('.dur').forEach(el => el.onclick = () => {
@@ -115,7 +125,9 @@ async function gen() {
   const err = document.getElementById('err');
   const device = canonicalDevice(document.getElementById('device').value);
   const secret = document.getElementById('secret').value.trim();
+  if (!secret) { err.textContent = 'المفتاح السري غير محفوظ — افتح الرابط الذي يحتوي المفتاح أول مرة، أو الصقه في الحقل المتقدّم'; const d = document.querySelector('details'); if (d) d.open = true; return; }
   if (device.length !== 12) { err.textContent = 'رمز الجهاز غير صحيح (يجب أن يكون 16 رمزاً)'; return; }
+  try { localStorage.setItem('alarab_key', secret); } catch(e){}
   err.textContent = '';
   const expiry = new Date(Date.now() + days * 86400000);
   const expiryDays = Math.floor(expiry.getTime() / 86400000);
