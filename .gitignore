@@ -48,3 +48,7 @@ app.*.map.json
 .widget_preview/
 test/goldens/
 promo/
+
+# ملفات مؤقتة لإنتاج الفيديو الترويجي
+music.py
+music.wav
