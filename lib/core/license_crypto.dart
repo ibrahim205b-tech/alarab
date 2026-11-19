@@ -93,3 +93,23 @@ int? verifyCode(String deviceId, String code, {String secret = licenseSecret}) {
   }
   return expiryDays;
 }
+
+/// كود استرجاع رمز المدير: مرتبط بالجهاز وموقّع بالمفتاح السري نفسه.
+/// يولده المطور عند نسيان الزبون لرمز المدير حتى يعيد ضبطه دون فقد البيانات.
+String resetCode(String deviceId, {String secret = licenseSecret}) {
+  final msg = '${canonicalDeviceId(deviceId)}:pinreset';
+  final sig = Hmac(sha256, utf8.encode(secret)).convert(utf8.encode(msg)).bytes.sublist(0, 6);
+  final code = _b32encode(sig);
+  return '${code.substring(0, 5)}-${code.substring(5, 10)}';
+}
+
+bool verifyReset(String deviceId, String code, {String secret = licenseSecret}) {
+  final n = normalizeCode(code);
+  final expected = normalizeCode(resetCode(deviceId, secret: secret));
+  if (n.length != expected.length) return false;
+  var ok = 0;
+  for (var i = 0; i < n.length; i++) {
+    ok |= n.codeUnitAt(i) ^ expected.codeUnitAt(i);
+  }
+  return ok == 0;
+}

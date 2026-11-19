@@ -209,6 +209,27 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('pin recovery dialog', (tester) async {
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 2.75;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(() => UsersRepo.create('المدير', '1234', 'admin'));
+    await tester.pumpWidget(const AlarabApp());
+    for (var i = 0; i < 6; i++) {
+      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 60)));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    await tester.tap(find.text('المدير'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('نسيت الرمز السري؟'));
+    for (var i = 0; i < 5; i++) {
+      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 60)));
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+    if (shots) await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/phone_recovery.png'));
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('login screen renders', (tester) async {
     tester.view.physicalSize = const Size(1080, 2340);
     tester.view.devicePixelRatio = 2.75;

@@ -33,6 +33,18 @@ class UsersRepo {
     return AppUser(id: id, name: name.trim(), role: role);
   }
 
+  static Future<List<AppUser>> admins() async {
+    final r = await db.query('users', where: "role = 'admin' AND active = 1", orderBy: 'id');
+    return r.map(AppUser.fromMap).toList();
+  }
+
+  /// إعادة ضبط رمز مستخدم بدون الحاجة للرمز القديم (يُستخدم في الاسترجاع)
+  static Future<void> resetPin(int userId, String pin) async {
+    await db.update('users', {'pin_hash': hashPin(pin)}, where: 'id = ?', whereArgs: [userId]);
+    await logActivity(db, 'استرجاع رمز مستخدم', '#$userId');
+    changed();
+  }
+
   static Future<bool> verify(int userId, String pin) async {
     final r = await db.query('users', where: 'id = ? AND active = 1', whereArgs: [userId]);
     return r.isNotEmpty && r.first['pin_hash'] == hashPin(pin);

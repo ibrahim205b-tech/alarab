@@ -6,6 +6,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   const device = 'ALRB-7K2M-9X4Q-AB12';
 
+  test('pin reset code is device-bound', () {
+    final c = resetCode(device);
+    expect(c, matches(RegExp(r'^[0-9A-HJKMNP-TV-Z]{5}-[0-9A-HJKMNP-TV-Z]{5}$')));
+    expect(verifyReset(device, c), true);
+    expect(verifyReset(device, c.toLowerCase().replaceAll('-', ' ')), true);
+    expect(verifyReset('ALRB-0000-0000-0000', c), false);
+    expect(verifyReset(device, 'ZZZZZ-ZZZZZ'), false);
+  });
+
   test('code is device-bound and tamper-proof', () {
     final days = DateTime.now().add(const Duration(days: 180)).millisecondsSinceEpoch ~/ 86400000;
     final code = generateCode(device, days);

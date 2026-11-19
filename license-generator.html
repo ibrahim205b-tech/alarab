@@ -54,6 +54,7 @@
     <input id="device" type="text" placeholder="ALRB-XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
     <label style="margin-top:16px">مدة الاشتراك</label>
     <div class="durations" id="durs">
+      <div class="dur" data-reset="1">استرجاع رمز المدير</div>
       <div class="dur" data-days="1">يوم تجربة</div>
       <div class="dur" data-days="7">7 أيام</div>
       <div class="dur" data-months="1">شهر</div>
@@ -95,10 +96,12 @@ const ALPH = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 })();
 let days = 180;
 
+let resetMode = false;
 document.querySelectorAll('.dur').forEach(el => el.onclick = () => {
   document.querySelectorAll('.dur').forEach(x => x.classList.remove('on'));
   el.classList.add('on');
-  days = el.dataset.days ? +el.dataset.days : +el.dataset.months * 30;
+  resetMode = !!el.dataset.reset;
+  if (!resetMode) days = el.dataset.days ? +el.dataset.days : +el.dataset.months * 30;
 });
 
 function normalize(s) {
@@ -129,6 +132,16 @@ async function gen() {
   if (device.length !== 12) { err.textContent = 'رمز الجهاز غير صحيح (يجب أن يكون 16 رمزاً)'; return; }
   try { localStorage.setItem('alarab_key', secret); } catch(e){}
   err.textContent = '';
+  if (resetMode) {
+    const sig = (await hmac(secret, device + ':pinreset')).slice(0, 6);
+    const code = b32(Array.from(sig));
+    const formatted = code.slice(0, 5) + '-' + code.slice(5, 10);
+    document.getElementById('code').textContent = formatted;
+    document.getElementById('meta').innerHTML = 'كود استرجاع رمز المدير<br>رمز الجهاز: <b dir=ltr>' + document.getElementById('device').value.toUpperCase() + '</b>';
+    document.getElementById('result').classList.add('show');
+    const cp = document.getElementById('copy'); cp.classList.remove('done'); cp.textContent = 'نسخ الكود';
+    return;
+  }
   const expiry = new Date(Date.now() + days * 86400000);
   const expiryDays = Math.floor(expiry.getTime() / 86400000);
   const sig = (await hmac(secret, device + ':' + expiryDays)).slice(0, 4);

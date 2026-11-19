@@ -21,6 +21,13 @@ void main(List<String> args) {
   final device = args[0];
   final secret = Platform.environment['ALARAB_LICENSE_SECRET'] ?? licenseSecret;
 
+  // كود استرجاع رمز المدير:  dart run tools/license_gen.dart <رمز-الجهاز> --reset
+  if (args.contains('--reset')) {
+    stdout.writeln('رمز الجهاز   : ${device.toUpperCase()}');
+    stdout.writeln('كود الاسترجاع: ${resetCode(device, secret: secret)}');
+    return;
+  }
+
   int days;
   String label;
   final di = args.indexOf('--days');
